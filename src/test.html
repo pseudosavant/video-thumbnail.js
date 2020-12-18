@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <title>video-thumbnail.js test harness</title>
+  <meta charset='utf-8'>
+  <meta name='description' content='video-thumbnail.js test harness' />
+  <meta name='version' content='0.0.1'>
+  <meta name='Copyright' content=' ©2020 Paul Ellis'>
+  <meta name='license' content='https://opensource.org/licenses/MIT'>
+  <meta name='apple-mobile-web-app-status-bar-style' content='black'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <style>
+    *,
+    *::before,
+    *::after {
+      -moz-box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+
+    }
+
+    html {
+      font-family: 'Segoe UI', Calibri, Arial, Helvetica, sans-serif;
+      font-size: 12px;
+    }
+
+    body {
+      padding: 0;
+    }
+
+    .comparison {
+      position: relative;
+    }
+
+    .video, .thumbnail {
+      display: inline-block;
+    }
+
+    .video-frame, .thumbnail-preview, .video, .thumbnail, .comparison {
+      height: 50vh;
+    }
+  </style>
+</head>
+<body class=''>
+  <section class='links'></section>
+  <section class='comparison'>
+    <div class='video'>
+      <video class='video-frame' src=''></video>
+    </div>
+    <div class='thumbnail'>
+      <img class='thumbnail-preview'>
+    </div>
+  </section>
+  <div class='console'></div>
+  <ul class='comparisons'></ul>
+  <script src='video-thumbnail.js'></script>
+  <script src='script.js'></script>
+</body>
+</html>
