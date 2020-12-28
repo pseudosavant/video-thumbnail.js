@@ -36,8 +36,22 @@
       display: inline-block;
     }
 
-    .video-frame, .thumbnail-preview, .video, .thumbnail, .comparison {
-      height: 50vh;
+    .video-frame, .thumbnail-preview, .video, .thumbnail {
+      --height: 20vh;
+      height: var(--height);
+      width: calc((16/9) * var(--height));
+    }
+
+    .video-frame {
+      border: 5px solid rebeccapurple;
+    }
+
+    .thumbnail-preview {
+      border: 5px solid red;
+    }
+
+    .console {
+      display: block;
     }
   </style>
 </head>

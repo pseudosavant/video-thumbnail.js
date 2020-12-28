@@ -343,19 +343,19 @@
   async function folderApiRequest(url) {
     const $frame = document.createElement('iframe');
     $frame.style.visibility = 'hidden';
+    document.body.appendChild($frame);
 
     const promise = new Promise((resolve, reject) => {
-      $frame.addEventListener('error', reject, false);
-
-      $frame.addEventListener('load', async () => {
+      $frame.onerror = reject;
+      
+      $frame.onload = async () => {
         const links = await getLinksFromFrame($frame, url);
         $frame.parentElement.removeChild($frame);
 
         resolve(links);
-      }, false);
+      };
     });
 
-    document.body.appendChild($frame);
     $frame.src = url; // Setting src starts loading
 
     return promise;
@@ -378,8 +378,12 @@
   window.app = {
     options: {
       thumbnails: {
-        timestamp: 0.5, // How far into the clip (relatively) should it grab the thumbnail from (e.g. 0.10 = 10%)
-        size: 480 // Maximum width of thumbnails. Setting this smaller will save localStorage space.
+        timestamp: 0.25, // How far into the clip (relatively) should it grab the thumbnail from (e.g. 0.10 = 10%)
+        size: 480, // Maximum width of thumbnails. Setting this smaller will save localStorage space.
+        mime: {
+          type: 'image/jpeg',
+          quality: 0.5
+        }
       }
     },
     supportedVideoTypes: getSupportedVideoTypes()
@@ -502,51 +506,53 @@
     const $links = [...document.querySelectorAll('.file, .folder')];
     $links.forEach((link) => $(link).on('click', clickLink));
   }
-
   function clickLink(e) {
     e.preventDefault();
 
     // `this` always refers to the parent element. `e.target` can be children too instead.
     const $el = $(this);
-
-    if ($el.hasClass('file'))   actionPlay($el.href);
+    if ($el.hasClass('file'))   actionOpen($el.href);
     if ($el.hasClass('folder')) createLinks($el.href);
   }
 
-  function actionPlay(url) {
-    const event = 'onloadeddata';
+  async function actionOpen(url) {
+    // const type = 'objectURL';
+    const type = 'dataURI';
+    const size = app.options.thumbnails.size;
+    const time = app.options.thumbnails.timestamp;
+    const mime = app.options.thumbnails.mime;
+
+    const start = Date.now();
+    const thumbnailURI = await videoThumbnail(url, {time, size, type, mime});
+    const duration = Math.round(Date.now() - start);
+
+    const msg = `${url} (${app.options.thumbnails.size}px max, ${type}): ${duration}ms`;
+    $('.console').innerHTML = msg;
+    console.info(msg);
+
+    const $preview = $('.thumbnail-preview');
+    $preview.src = thumbnailURI;
 
     const $videoFrame = $('.video-frame');
-    $videoFrame.src = url;
-    $videoFrame[event] = async () => {
-      $videoFrame[event] = undefined;
-      $videoFrame.pause();
-
-      const type = 'dataURI';
-      const size = app.options.thumbnails.size;
-      const time = app.options.thumbnails.timestamp;
-      $videoFrame.currentTime = time * $videoFrame.duration;
+    $videoFrame.muted = true;
+    $videoFrame.autoplay = true;
+    
+    const event = 'onloadedmetadata';
+    $videoFrame[event] = () => {
+      const aspectRatio = $videoFrame.videoWidth / $videoFrame.videoHeight;
+      $preview.style.width = ($videoFrame.clientHeight * aspectRatio) + 'px';
+      $preview.style.height = $videoFrame.clientHeight + 'px';
       
-      performance.mark(`${url}-start`);
-      const thumbnailURI = await videoThumbnail(url, {time, size, type});
-      performance.mark(`${url}-end`);
-
-      const perf = performance.measure(url, `${url}-start`, `${url}-end`);
-      const duration = Math.round(perf.duration);
-      const msg = `${url} (${app.options.thumbnails.size}px max): ${duration}ms`;
-      $('.console').innerHTML = msg;
-      console.info(msg);
-
-      const $preview = $('.thumbnail-preview');
-      $preview.src = thumbnailURI;
-      $preview.style.width = getComputedStyle($videoFrame).getPropertyValue('width');
-      $preview.style.height = getComputedStyle($videoFrame).getPropertyValue('height');
-    }; 
+      $videoFrame[event] = undefined;
+      $videoFrame.currentTime = time * $videoFrame.duration;
+      $videoFrame.pause();
+    };
+    $videoFrame.src = url;
   }
 
   async function generateDataURIs(urls) {
     const dataURIs = [];
-    const type = 'objectURL';
+    const type = 'dataURI';
     const size = app.options.thumbnails.size;
     const time = app.options.thumbnails.timestamp;
 
@@ -568,7 +574,7 @@
     const perThumbnail = Math.round(successDuration / generated);
 
     console.info(`${requested} ${size}px thumbnails requested - ${totalDuration}ms`);
-    console.info(`${generated} ${size}px thumbnails generated - ${successDuration}ms (${perThumbnail}ms per thumbnail)`);
+    console.info(`${generated} ${size}px ${type} thumbnails generated - ${successDuration}ms (${perThumbnail}ms per thumbnail)`);
   }
 
   // main()
