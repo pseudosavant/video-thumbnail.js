@@ -24,13 +24,23 @@ async function getCoolThumbnail() {
   const size = 480; // Maximum of 480px wide thumbnail
   const type = 'dataURI'; // `videoThumbnail` can return a `dataURI` or `objectURL`
   const cache = true; // Cache thumbnails in `localStorage`
+  const cacheKeyPrefix = 'myCustomThumbnailCacheKeyPrefix';
   const mime = {
     type: 'image/jpeg',
     quality: 0.5 // Quality is not required for `image/png`
   };
-  const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache});
+  const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache, cacheKeyPrefix});
   // Do something with `thumbnailURI`
 }
+```
+
+### Clearing `localStorage` cache
+```js
+videoThumbnail.clearCache() // Clears the thumbnails cached with the default cache key prefix ('video-thumbnail.js')
+```
+
+```js
+videoThumbnail.clearCache('myCustomThumbnailCacheKeyPrefix') // Clears the thumbnails cached with the custom cache key prefix 'myCustomThumbnailCacheKeyPrefix'
 ```
 
 ## Supported Browsers

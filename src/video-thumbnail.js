@@ -5,6 +5,15 @@
   // License: MIT
   // v1.1.0
 
+  const defaults = {
+    time: 0.1,
+    size: 480,
+    mime: { type: 'image/png' },
+    type: 'dataURI',
+    cache: false,
+    cacheKeyPrefix: 'video-thumbnail.js'
+  };
+
   function store(key, val) {
     try {
       return localStorage.setItem(key, val);
@@ -87,12 +96,12 @@
     return (n > 0 && n < 1);
   }
 
-  const canThumbnail = (function(){
-    const falseMessage = 'Thumbnail support: false';
+  const canCache = (function(){
+    const falseMessage = 'Thumbnail caching support: false';
 
     // Must support `localStorage`
     try {
-        const key = '__canThumbnailTest__';
+        const key = '__canCacheTest__';
         const val = 'true';
 
         localStorage.setItem(key, val);
@@ -109,42 +118,44 @@
   })();
 
   async function getThumbnailDataURI(url, opts) {
-    if (!canThumbnail) return undefined;
-
-    const def = {
-      time: 0.1,
-      size: 480,
-      mime: { type: 'image/png' },
-      type: 'dataURI',
-      cache: false
-    };
-
     const isImageMimeType = (s) => (/image\/.+/i).test(s);
 
-    const time = (typeof opts.time === 'number' && opts.time >= 0 ? opts.time : def.size);
-    const size = (typeof opts.size === 'number' && opts.size >  0 ? opts.size : def.size);
-    const mime = (opts.mime && isImageMimeType(opts.mime.type)    ? opts.mime : def.mime);
-    const type = (opts.type === 'objectURL'                       ? opts.type : def.type);
-    const cache = (typeof opts.cache === 'boolean'                ? opts.cache : def.cache);
+    const time = (typeof opts.time === 'number' && opts.time >= 0 ? opts.time : defaults.size);
+    const size = (typeof opts.size === 'number' && opts.size >  0 ? opts.size : defaults.size);
+    const mime = (opts.mime && isImageMimeType(opts.mime.type)    ? opts.mime : defaults.mime);
+    const type = (opts.type === 'objectURL'                       ? opts.type : defaults.type);
+    const shouldCache = (typeof opts.cache === 'boolean'                ? opts.cache : defaults.cache);
+    const key = (typeof opts.cacheKeyPrefix === 'string' ? opts.cacheKeyPrefix : defaults.cacheKeyPrefix) + `-cache-${size}|${time}|${url}`;
 
     try {
-      const key = `video-thumbnail.js-cache-${size}|${time}|${url}`;
       const cachedURI = retrieve(key);
 
-      if (cache && cachedURI) {
+      if (canCache && shouldCache && cachedURI) {
         return cachedURI;
       } else {
         const $player = await getVideo(url);
         const dataURI = await videoToDataURI($player, time, size, mime, type);
         $player.src = ''; // Unset video
         
-        if (cache) store(key, dataURI);
+        if (canCache && shouldCache) store(key, dataURI);
 
         return dataURI;
       }
     } catch (e) {
       console.info(`Unable to create thumbnail for: ${url}`, e);
     }
+  }
+
+  getThumbnailDataURI.clearCache = function clearCache(prefix) {
+    const cacheKeyPrefix = (typeof prefix === 'string' ? prefix : defaults.cacheKeyPrefix);
+
+    const keys =
+      Object.keys(localStorage)
+      .filter((k) => k.startsWith(cacheKeyPrefix));
+      
+    keys.forEach((k) => localStorage.removeItem(k));
+
+    return keys.length > 0;
   }
 
   global.videoThumbnail = getThumbnailDataURI;
