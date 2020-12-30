@@ -3,7 +3,7 @@
   // https://github.com/pseudosavant/video-thumbnail.js
   // © 2020 Paul Ellis (https://github.com/pseudosavant)
   // License: MIT
-  // v1.1.0
+  // v1.1.1
 
   const defaults = {
     time: 0.1,
@@ -152,7 +152,7 @@
     const keys =
       Object.keys(localStorage)
       .filter((k) => k.startsWith(cacheKeyPrefix));
-      
+
     keys.forEach((k) => localStorage.removeItem(k));
 
     return keys.length > 0;
