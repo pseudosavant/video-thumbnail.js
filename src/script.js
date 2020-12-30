@@ -380,6 +380,7 @@
       thumbnails: {
         timestamp: 0.25, // How far into the clip (relatively) should it grab the thumbnail from (e.g. 0.10 = 10%)
         size: 480, // Maximum width of thumbnails. Setting this smaller will save localStorage space.
+        cache: true,
         mime: {
           type: 'image/jpeg',
           quality: 0.5
@@ -521,9 +522,10 @@
     const size = app.options.thumbnails.size;
     const time = app.options.thumbnails.timestamp;
     const mime = app.options.thumbnails.mime;
+    const cache = app.options.thumbnails.cache;
 
     const start = Date.now();
-    const thumbnailURI = await videoThumbnail(url, {time, size, type, mime});
+    const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache});
     const duration = Math.round(Date.now() - start);
 
     const msg = `${url} (${app.options.thumbnails.size}px max, ${type}): ${duration}ms`;

@@ -1,13 +1,13 @@
 # video-thumbnail.js
-Library to convert a URL into a image data URI
+Library to convert a URL into a image [data URI](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs) or [objectURL](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL)
 
-### Supported features
+## Supported features
 
 * Video thumbnail generation from a URL (must be `same-origin` or support `CORS`)
 
-### How to use
+## How to use
 
-#### Simple
+### Simple
 ```js
 async function getCoolThumbnail() {
   const url = 'https://mycool.com/videosite/video.mp4';
@@ -16,18 +16,19 @@ async function getCoolThumbnail() {
 }
 ```
 
-#### Advanced
+### Advanced
 ```js
 async function getCoolThumbnail() {
   const url = 'https://mycool.com/videosite/video.mp4';
   const time = 0.1; // Grab thumbnail from 10% into the video
   const size = 480; // Maximum of 480px wide thumbnail
   const type = 'dataURI'; // `videoThumbnail` can return a `dataURI` or `objectURL`
+  const cache = true; // Cache thumbnails in `localStorage`
   const mime = {
     type: 'image/jpeg',
     quality: 0.5 // Quality is not required for `image/png`
   };
-  const thumbnailURI = await videoThumbnail(url, {time, size, type, mime});
+  const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache});
   // Do something with `thumbnailURI`
 }
 ```

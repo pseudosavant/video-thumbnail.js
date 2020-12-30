@@ -3,7 +3,25 @@
   // https://github.com/pseudosavant/video-thumbnail.js
   // © 2020 Paul Ellis (https://github.com/pseudosavant)
   // License: MIT
-  // v1.0.0
+  // v1.1.0
+
+  function store(key, val) {
+    try {
+      return localStorage.setItem(key, val);
+    } catch (e) {
+      console.warn(`Failed to store: ${key}`, e);
+      return null;
+    }
+  }
+
+  function retrieve(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.warn(`Failed to retrieve: ${key}`, e);
+      return null;
+    }
+  }
 
   function getVideo(url) {
     const $player = document.createElement('video');
@@ -69,27 +87,61 @@
     return (n > 0 && n < 1);
   }
 
+  const canThumbnail = (function(){
+    const falseMessage = 'Thumbnail support: false';
+
+    // Must support `localStorage`
+    try {
+        const key = '__canThumbnailTest__';
+        const val = 'true';
+
+        localStorage.setItem(key, val);
+        const supported = localStorage.getItem(key) === val;
+        localStorage.removeItem(key);
+
+      if (!supported) console.info(falseMessage);
+
+      return supported;
+    } catch (e) {
+      console.info(falseMessage);
+      return false;
+    }
+  })();
+
   async function getThumbnailDataURI(url, opts) {
+    if (!canThumbnail) return undefined;
+
     const def = {
       time: 0.1,
       size: 480,
       mime: { type: 'image/png' },
-      type: 'dataURI'
+      type: 'dataURI',
+      cache: false
     };
 
+    const isImageMimeType = (s) => (/image\/.+/i).test(s);
+
+    const time = (typeof opts.time === 'number' && opts.time >= 0 ? opts.time : def.size);
+    const size = (typeof opts.size === 'number' && opts.size >  0 ? opts.size : def.size);
+    const mime = (opts.mime && isImageMimeType(opts.mime.type)    ? opts.mime : def.mime);
+    const type = (opts.type === 'objectURL'                       ? opts.type : def.type);
+    const cache = (typeof opts.cache === 'boolean'                ? opts.cache : def.cache);
+
     try {
-      const isImageMimeType = (s) => (/image\/.+/i).test(s);
+      const key = `video-thumbnail.js-cache-${size}|${time}|${url}`;
+      const cachedURI = retrieve(key);
 
-      const time = (typeof opts.time === 'number' && opts.time >= 0 ? opts.time : def.size);
-      const size = (typeof opts.size === 'number' && opts.size >  0 ? opts.size : def.size);
-      const mime = (opts.mime && isImageMimeType(opts.mime.type)    ? opts.mime : def.mime);
-      const type = (opts.type === 'objectURL'                       ? opts.type : def.type);
+      if (cache && cachedURI) {
+        return cachedURI;
+      } else {
+        const $player = await getVideo(url);
+        const dataURI = await videoToDataURI($player, time, size, mime, type);
+        $player.src = ''; // Unset video
+        
+        if (cache) store(key, dataURI);
 
-      const $player = await getVideo(url);
-      const dataURI = await videoToDataURI($player, time, size, mime, type);
-      $player.src = ''; // Unset video
-
-      return dataURI;
+        return dataURI;
+      }
     } catch (e) {
       console.info(`Unable to create thumbnail for: ${url}`, e);
     }
