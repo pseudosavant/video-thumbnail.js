@@ -73,7 +73,7 @@
 
     return el;
   }
-  
+
   global.$ = $;
 })(this);
 
@@ -347,7 +347,7 @@
 
     const promise = new Promise((resolve, reject) => {
       $frame.onerror = reject;
-      
+
       $frame.onload = async () => {
         const links = await getLinksFromFrame($frame, url);
         $frame.parentElement.removeChild($frame);
@@ -380,11 +380,12 @@
       thumbnails: {
         timestamp: 0.25, // How far into the clip (relatively) should it grab the thumbnail from (e.g. 0.10 = 10%)
         size: 480, // Maximum width of thumbnails. Setting this smaller will save localStorage space.
-        cache: true,
+        cache: false,
         mime: {
           type: 'image/jpeg',
           quality: 0.5
-        }
+        },
+        timeout: 2_000
       }
     },
     supportedVideoTypes: getSupportedVideoTypes()
@@ -521,11 +522,13 @@
     const type = 'dataURI';
     const size = app.options.thumbnails.size;
     const time = app.options.thumbnails.timestamp;
+
     const mime = app.options.thumbnails.mime;
     const cache = app.options.thumbnails.cache;
+    const timeout = app.options.thumbnails.timeout;
 
     const start = Date.now();
-    const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache});
+    const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache, timeout});
     const duration = Math.round(Date.now() - start);
 
     const msg = `${url} (${app.options.thumbnails.size}px max, ${type}): ${duration}ms`;
@@ -538,13 +541,13 @@
     const $videoFrame = $('.video-frame');
     $videoFrame.muted = true;
     $videoFrame.autoplay = true;
-    
+
     const event = 'onloadedmetadata';
     $videoFrame[event] = () => {
       const aspectRatio = $videoFrame.videoWidth / $videoFrame.videoHeight;
       $preview.style.width = ($videoFrame.clientHeight * aspectRatio) + 'px';
       $preview.style.height = $videoFrame.clientHeight + 'px';
-      
+
       $videoFrame[event] = undefined;
       $videoFrame.currentTime = time * $videoFrame.duration;
       $videoFrame.pause();
@@ -557,18 +560,19 @@
     const type = 'dataURI';
     const size = app.options.thumbnails.size;
     const time = app.options.thumbnails.timestamp;
+    const timeout = app.options.thumbnails.timeout;
 
     const start = Date.now();
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       const before = Date.now();
 
-      const dataURI = await videoThumbnail(url, {time, size, type});
-      
+      const dataURI = await videoThumbnail(url, {time, size, type, timeout});
+
       const duration = Date.now() - before;
       if (dataURI) dataURIs.push({url, dataURI, duration});
     }
-    
+
     const totalDuration = Math.round(Date.now() - start);
     const successDuration = Math.round(dataURIs.reduce((acc, cv) => acc += cv.duration, 0));
     const requested = urls.length;
