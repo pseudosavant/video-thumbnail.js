@@ -3,7 +3,7 @@
   // https://github.com/pseudosavant/video-thumbnail.js
   // © 2020 Paul Ellis (https://github.com/pseudosavant)
   // License: MIT
-  // v1.1.1
+  // v1.1.2
 
   const defaults = {
     time: 0.1,
