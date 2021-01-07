@@ -24,12 +24,13 @@ async function getCoolThumbnail() {
   const size = 480; // Maximum of 480px wide thumbnail
   const type = 'dataURI'; // `videoThumbnail` can return a `dataURI` or `objectURL`
   const cache = true; // Cache thumbnails in `localStorage`
+  const timeout = 5000; // Stop trying to generate a thumbnail if it takes more than 5 seconds. Default: 30s seconds.
   const cacheKeyPrefix = 'myCustomThumbnailCacheKeyPrefix';
   const mime = {
     type: 'image/jpeg',
     quality: 0.5 // Quality is not required for `image/png`
   };
-  const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache, cacheKeyPrefix});
+  const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache, cacheKeyPrefix, timeout});
   // Do something with `thumbnailURI`
 }
 ```
@@ -42,6 +43,13 @@ videoThumbnail.clearCache() // Clears the thumbnails cached with the default cac
 ```js
 videoThumbnail.clearCache('myCustomThumbnailCacheKeyPrefix') // Clears the thumbnails cached with the custom cache key prefix 'myCustomThumbnailCacheKeyPrefix'
 ```
+
+## Data URI vs Object URL?
+
+### Data URI
+
+* Pros: string is portable across contexts
+* Cons: Synchronous generation of the image file
 
 ## Supported Browsers
 
