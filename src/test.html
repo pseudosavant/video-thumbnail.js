@@ -32,22 +32,30 @@
       position: relative;
     }
 
-    .video, .thumbnail {
+    .video, .thumbnails {
       display: inline-block;
     }
 
-    .video-frame, .thumbnail-preview, .video, .thumbnail {
-      --height: 20vh;
-      height: var(--height);
-      width: calc((16/9) * var(--height));
+    .video-frame, .thumbnail-preview, .video {
+      width: 30vw;
+      border-radius: 5px;
     }
 
     .video-frame {
       border: 5px solid rebeccapurple;
     }
 
+    .thumbnail-preview-container {
+      display: inline-block;
+    }
+
     .thumbnail-preview {
       border: 5px solid red;
+      margin-right: 1rem;
+    }
+
+    .thumbnail-preview + figure {
+      margin: 0 0 1rem 0;
     }
 
     .console {
@@ -59,11 +67,9 @@
   <section class='links'></section>
   <section class='comparison'>
     <div class='video'>
-      <video class='video-frame' src=''></video>
+      <video class='video-frame' src='' controls></video>
     </div>
-    <div class='thumbnail'>
-      <img class='thumbnail-preview'>
-    </div>
+    <div class='thumbnails'></div>
   </section>
   <div class='console'></div>
   <ul class='comparisons'></ul>

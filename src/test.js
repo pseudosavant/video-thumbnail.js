@@ -378,14 +378,13 @@
   window.app = {
     options: {
       thumbnails: {
-        timestamp: 0.25, // How far into the clip (relatively) should it grab the thumbnail from (e.g. 0.10 = 10%)
-        size: 480, // Maximum width of thumbnails. Setting this smaller will save localStorage space.
-        cache: false,
+        timestamps: [0, 0.2, 0.4, 0.6, 0.8], // Array of where in the clip it should grab the thumbnails from (e.g. 0.10 = 10%)
+        size: 360, // Maximum width of thumbnails. Setting this smaller will save localStorage space.
+        cache: true,
         mime: {
-          type: 'image/jpeg',
-          quality: 0.5
-        },
-        timeout: 2_000
+          type: 'image/webp',
+          quality: 0.4
+        }
       }
     },
     supportedVideoTypes: getSupportedVideoTypes()
@@ -479,6 +478,7 @@
     const files = links.files;
     const base = getBaseLocation(window.location);
 
+    // Render folders
     html += `<div class='folders'>`;
     folders.forEach((folder) => {
       const rawUrl = folder.url;
@@ -489,6 +489,7 @@
     });
     html += `</div>`;
 
+    // Render files
     html += `<div class='files'>`;
     const videos = files.filter((file) => isVideo(file.url));
     videos.sort(sortFiles);
@@ -501,18 +502,23 @@
     });
     html += `</div>`;
 
+    // Populate links
     $('.links').innerHTML = html;
-
-    generateDataURIs(videos.map((v) => v.url));
-
+    
+    // Click handler
     const $links = [...document.querySelectorAll('.file, .folder')];
     $links.forEach((link) => $(link).on('click', clickLink));
+
+    // async generate data URIs
+    generateURIs(videos.map((v) => v.url));
   }
+
   function clickLink(e) {
     e.preventDefault();
 
     // `this` always refers to the parent element. `e.target` can be children too instead.
     const $el = $(this);
+    
     if ($el.hasClass('file'))   actionOpen($el.href);
     if ($el.hasClass('folder')) createLinks($el.href);
   }
@@ -521,71 +527,135 @@
     // const type = 'objectURL';
     const type = 'dataURI';
     const size = app.options.thumbnails.size;
-    const time = app.options.thumbnails.timestamp;
+    const timestamps = app.options.thumbnails.timestamps;
 
     const mime = app.options.thumbnails.mime;
     const cache = app.options.thumbnails.cache;
-    const timeout = app.options.thumbnails.timeout;
 
     const start = Date.now();
-    const thumbnailURI = await videoThumbnail(url, {time, size, type, mime, cache, timeout});
+    const thumbnails = await videoThumbnail(url, {timestamps, size, type, mime, cache});
     const duration = Math.round(Date.now() - start);
 
     const msg = `${url} (${app.options.thumbnails.size}px max, ${type}): ${duration}ms`;
     $('.console').innerHTML = msg;
     console.info(msg);
 
-    const $preview = $('.thumbnail-preview');
-    $preview.src = thumbnailURI;
+    $('.thumbnails').html('');
+    
+    if (thumbnails && thumbnails.length > 0) {
+      thumbnails.forEach((thumbnail) => {
+        const details =
+`size: ${thumbnail.sizeKB}KB
+seek time: ${thumbnail.seekTime}
+max dimension: ${size}px
+mime-type: ${thumbnail.mime.type}`;
+        const $container = $(`<span class="thumbnail-preview-container" title="${details}"></span>`);
+        const $figure = $(`<figure>${thumbnail.timestamp} / ${thumbnail.seekTime}</figure>`);
+        const $thumbnail = $(`<img class="thumbnail-preview">`);
+        $thumbnail.src = thumbnail.URI;
+        
+        $container.append($thumbnail);
+        $container.append($figure);
+        $('.thumbnails').append($container);
 
-    const $videoFrame = $('.video-frame');
-    $videoFrame.muted = true;
-    $videoFrame.autoplay = true;
+        $container.on('click', () => $videoFrame.currentTime = $videoFrame.duration * thumbnail.timestamp);
+      });
 
-    const event = 'onloadedmetadata';
-    $videoFrame[event] = () => {
-      const aspectRatio = $videoFrame.videoWidth / $videoFrame.videoHeight;
-      $preview.style.width = ($videoFrame.clientHeight * aspectRatio) + 'px';
-      $preview.style.height = $videoFrame.clientHeight + 'px';
-
-      $videoFrame[event] = undefined;
-      $videoFrame.currentTime = time * $videoFrame.duration;
-      $videoFrame.pause();
-    };
-    $videoFrame.src = url;
+      const $videoFrame = $('.video-frame');
+      $videoFrame.muted = true;
+      $videoFrame.autoplay = true;
+      
+      const event = 'onloadedmetadata';
+      $videoFrame[event] = () => {        
+        $videoFrame[event] = undefined;
+        const timestamp = Array.isArray(timestamps ? timestamps[0] : timestamps);
+        $videoFrame.currentTime = timestamp * $videoFrame.duration;
+        $videoFrame.pause();
+      };
+      $videoFrame.src = url;
+    } else {
+      console.warn(`No thumbnails generated for ${url}`);
+    }
   }
-
-  async function generateDataURIs(urls) {
-    const dataURIs = [];
+  
+  async function generateURIs(urls) {
     const type = 'dataURI';
     const size = app.options.thumbnails.size;
-    const time = app.options.thumbnails.timestamp;
+    const timestamps = app.options.thumbnails.timestamps;
     const timeout = app.options.thumbnails.timeout;
+    const cache = app.options.thumbnails.cache;
+    const mime = app.options.thumbnails.mime;
 
     const start = Date.now();
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
-      const before = Date.now();
+    const promises = urls.map((url) => {
+      const promise = new Promise(async (resolve, reject) => {
+        const before = Date.now();
+        const thumbnails = await videoThumbnail(url, {timestamps, size, type, timeout, cache, mime});
 
-      const dataURI = await videoThumbnail(url, {time, size, type, timeout});
+        const duration = Date.now() - before;
+        resolve({url, thumbnails, duration});
+      });
 
-      const duration = Date.now() - before;
-      if (dataURI) dataURIs.push({url, dataURI, duration});
-    }
+      return promise;
+    });
+
+    const uris = await Promise.all(promises);
 
     const totalDuration = Math.round(Date.now() - start);
-    const successDuration = Math.round(dataURIs.reduce((acc, cv) => acc += cv.duration, 0));
-    const requested = urls.length;
-    const generated = dataURIs.length;
-    const perThumbnail = Math.round(successDuration / generated);
+    const urlsRequested = urls.length;
+    const urlsProcessed = uris.length;
+    
+    const thumbnailsPerUrl = timestamps.length;
+    const thumbnailsRequested = urlsRequested * thumbnailsPerUrl;
+    const thumbnailsGenerated = urlsProcessed * thumbnailsPerUrl;
+    const perThumbnail = Math.round(totalDuration / thumbnailsGenerated);
 
-    console.info(`${requested} ${size}px thumbnails requested - ${totalDuration}ms`);
-    console.info(`${generated} ${size}px ${type} thumbnails generated - ${successDuration}ms (${perThumbnail}ms per thumbnail)`);
+    const totalSize = uris.reduce((total, uri) => {
+      if (uri.thumbnails && uri.thumbnails.length > 0) {
+        return total += uri.thumbnails.reduce((acc, thumbnail) => acc += thumbnail.URI.length, 0);
+      } else {
+        return total;
+      }
+    }, 0);
+    const avgSize = totalSize / thumbnailsGenerated;
+
+    const isCachingEnabled = (cache ? 'enabled' : 'disabled')
+
+    console.info(`${urlsRequested} URLs requested, ${size}px, caching: ${isCachingEnabled}, ${thumbnailsPerUrl} thumbnails per URL (${totalDuration}ms)`);
+    console.info(`${thumbnailsGenerated}/${thumbnailsRequested} thumbnails generated from ${urlsRequested} URLs (${perThumbnail}ms/${Math.floor(avgSize / 1024)}KB per thumbnail)`);
   }
+
+  // Fill the cache with dummy data using a valid vt.js key
+  const fillCache = () => {
+    const val = '1234567890'.repeat(500);
+
+    for (let i = 0; i < 99999; i++) {
+      const key = `video-thumbnail.js-${Date.now()}-12.99-360|webp|0.4|https://web.local/code/video-thumbnail.js/test.webm`;
+      try {
+        localStorage.setItem(key, val);
+      } catch {}
+    }
+    console.info('Cache filled')
+  };
+  window.fillCache = fillCache;
+
+  // Print size of the localStorage
+  const cacheSize = () => {
+    const keys = Object.keys(localStorage);
+    const size = keys.reduce((acc, key) => acc += localStorage.getItem(key).length, 0);
+
+    return size;
+  };
+  window.cacheSize = cacheSize;
 
   // main()
   async function main() {
     createLinks(urlToFolder(location.toString()) + '../videos/');
+
+    // Only show controls when hovering
+    const $video = $('video');
+    $video.on('mouseenter', () => $video.controls = true);
+    $video.on('mouseleave', () => $video.controls = false);
   }
 
   main();
