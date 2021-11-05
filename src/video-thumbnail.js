@@ -16,7 +16,7 @@
 
   const round = (val, digits) => +val.toFixed(digits);
 
-  function store(key, val) {
+  const store = (key, val) => {
     try {
       localStorage.setItem(key, val);
       console.info(`[localStorage] Persisted: ${key} `);
@@ -31,7 +31,7 @@
     }
   }
   
-  function retrieve(key) {
+  const retrieve = (key) => {
     try {
       return localStorage.getItem(key);
     } catch (e) {
@@ -40,7 +40,7 @@
     }
   }
 
-  function keyEndsWith(partialKey) {
+  const keyEndsWith = (partialKey) => {
     const keys = Object.keys(localStorage);
     const fullKey = keys.find((key) => key.endsWith(partialKey));
     return fullKey;    
@@ -75,7 +75,7 @@
     }
   })();
 
-  function getVideo(url) {
+  const getVideo = (url) => {
     const $player = document.createElement('video');
     $player.crossorigin = 'anonymous';
     $player.muted = true;
@@ -99,7 +99,7 @@
     return promise;
   }
 
-  async function videoToDataURI(videoElement, timestamp, size, mime, type) {
+  const videoToDataURI = async (videoElement, timestamp, size, mime, type) => {
     const start = Date.now();
     const $player = videoElement;
       
@@ -133,7 +133,7 @@
     return response;
   }
   
-  function canvasToBlob(canvas, type, quality) {
+  const canvasToBlob = (canvas, type, quality) => {
     const promise = new Promise((resolve, reject) => {
       try {
         canvas.toBlob((blob) => resolve(URL.createObjectURL(blob)), type, quality);
@@ -145,7 +145,7 @@
     return promise;
   }
   
-  function seek($player, time) {
+  const seek = ($player, time) => {
     const promise = new Promise((resolve, reject) => {
       const errorHandler = (e) => reject('Error while seeking video', e);
       $player.addEventListener('error', errorHandler, { once: true});
@@ -162,7 +162,7 @@
   }
   const isSeekable = (videoElement) => videoElement?.seekable?.end(0) === videoElement?.duration;
 
-  async function getThumbnailDataURI(url, opts) {
+  const getThumbnailDataURI = async (url, opts) => {
     opts = {...opts} || {};
 
     const isImageMimeType = (s) => (/image\/.+/i).test(s);
