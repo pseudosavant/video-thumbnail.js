@@ -3,12 +3,12 @@
   // https://github.com/pseudosavant/video-thumbnail.js
   // © 2021 Paul Ellis (https://github.com/pseudosavant)
   // License: MIT
-  // v1.2.0
+  // v1.3.0
 
   const defaults = {
     timestamps: [0.1],
     size: 480,
-    mime: { type: 'image/webp', quality: 0.5 },
+    mime: { type: 'image/webp', quality: 0.2 },
     type: 'dataURI',
     cache: false,
     cacheKeyPrefix: 'video-thumbnail.js'
@@ -30,8 +30,7 @@
       return null;
     }
   }
-  window.store = store;
-
+  
   function retrieve(key) {
     try {
       return localStorage.getItem(key);
@@ -100,9 +99,9 @@
     return promise;
   }
 
-  async function videoToDataURI(videoSrc, timestamp, size, mime, type) {
+  async function videoToDataURI(videoElement, timestamp, size, mime, type) {
     const start = Date.now();
-    const $player = videoSrc;
+    const $player = videoElement;
       
     const aspectRatio = $player.videoHeight / $player.videoWidth;
     const w = size;
@@ -113,11 +112,16 @@
     c.height = h;
     const ctx = c.getContext('2d');
     
-    const relativeSeekTimestamp = timestamp * $player.duration;
-
-    // Relative seek if `0 < time < 1`, absolute otherwise
-    const seekTime = (betweenZeroAndOne(timestamp) ? relativeSeekTimestamp : timestamp);
-    await seek($player, seekTime);
+    var seekTime = 0;
+    if (isSeekable($player)) {
+      const relativeSeekTimestamp = timestamp * $player.duration;
+      
+      // Relative seek if `0 < time < 1`, absolute otherwise
+      seekTime = (betweenZeroAndOne(timestamp) ? relativeSeekTimestamp : timestamp);
+      await seek($player, seekTime);
+    } else {
+      console.warn(`Unable to seek video: ${videoElement.src}`);
+    }
 
     $player.pause();
     ctx.drawImage($player, 0, 0, w, h);
@@ -156,16 +160,18 @@
     
     return promise;
   }
+  const isSeekable = (videoElement) => videoElement?.seekable?.end(0) === videoElement?.duration;
 
   async function getThumbnailDataURI(url, opts) {
-    opts = opts || {};
+    opts = {...opts} || {};
 
     const isImageMimeType = (s) => (/image\/.+/i).test(s);
-    const size        = (isNumber(opts.size) && opts.size > 0         ? opts.size : defaults.size);
-    const mime        = (opts.mime && isImageMimeType(opts.mime.type) ? opts.mime : defaults.mime);
-    const type        = (opts.type === 'objectURL'                    ? opts.type : defaults.type);
-    const shouldCache = (isBoolean(opts.cache)                        ? opts.cache : defaults.cache);
-    
+    const size          = (isNumber(opts.size) && opts.size > 0         ? opts.size : defaults.size);
+    const mime          = (opts.mime && isImageMimeType(opts.mime.type) ? {...opts.mime} : {...defaults.mime});
+    const type          = (opts.type === 'objectURL'                    ? opts.type : defaults.type);
+    const shouldCache   = (isBoolean(opts.shouldCache)                  ? opts.shouldCache : defaults.cache);
+    const cacheReadOnly = opts.cacheReadOnly;
+
     const timestamps = (
       Array.isArray(opts.timestamps) ?
         opts.timestamps :
@@ -193,7 +199,7 @@
 
           thumbnails.push({URI, timestamp, duration, mime, seekTime, sizeKB});
           console.info(`[${defaults.cacheKeyPrefix}] Retrieved from cache: ${cachedKey}`);
-        } else {
+        } else if (!cacheReadOnly) {
           // Generate fresh thumbnail if not found in cache
           const $player = await getVideo(url);
           const thumbnail = await videoToDataURI($player, timestamp, size, mime, type);
@@ -255,6 +261,13 @@
     while (keys.length > 0) localStorage.removeItem(keys.pop());
 
     return keys.length === 0;
+  }
+
+  // Returns cache size in bytes
+  getThumbnailDataURI.cacheSize = () => {
+    const keys = Object.keys(localStorage).filter((key) => key.startsWith(defaults.cacheKeyPrefix));
+    const size = keys.reduce((acc, key) => acc += localStorage.getItem(key).length, 0);
+    return size;
   }
 
   global.videoThumbnail = getThumbnailDataURI;
