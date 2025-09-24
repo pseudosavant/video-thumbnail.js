@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Thumbnail Performance Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .test-controls label {
+            font-weight: bold;
+        }
+        
+        .test-controls input, .test-controls select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .test-controls button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .test-controls button:hover {
+            background: #005a87;
+        }
+        
+        .test-controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .format-result {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+        
+        .format-result h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            text-align: center;
+        }
+        
+        .format-result.fastest {
+            border-color: #4CAF50;
+            background: #f1f8e9;
+        }
+        
+        .format-result.slowest {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        
+        .timing-breakdown {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        
+        .timing-breakdown h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .timing-bar {
+            display: flex;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .timing-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+        }
+        
+        .load-time { background-color: #2196F3; }
+        .seek-time { background-color: #FF9800; }
+        .encode-time { background-color: #4CAF50; }
+        .other-time { background-color: #9E9E9E; }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+        
+        .metric-label {
+            font-weight: bold;
+        }
+        
+        .metric-value {
+            font-family: monospace;
+        }
+        
+        .thumbnail-preview {
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .thumbnail-preview img {
+            max-width: 150px;
+            max-height: 150px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .progress {
+            background: #f0f0f0;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            min-height: 20px;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #f44336;
+            margin: 10px 0;
+        }
+        
+        .summary {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .video-upload {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .video-upload.dragover {
+            border-color: #007cba;
+            background: #f0f8ff;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            font-size: 12px;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        
+        .fastest-time {
+            background-color: #c8e6c9;
+            font-weight: bold;
+        }
+        
+        .slowest-time {
+            background-color: #ffcdd2;
+        }
+        
+        .phase-comparison {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .phase-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .phase-card h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .phase-times {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .video-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #f9f9f9;
+            transition: all 0.2s;
+        }
+        
+        .video-item:hover {
+            background: #e3f2fd;
+            border-color: #007cba;
+        }
+        
+        .video-item.selected {
+            background: #007cba;
+            color: white;
+            border-color: #005a87;
+        }
+        
+        .video-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .video-info {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .video-item.selected .video-info {
+            color: #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ Video Thumbnail Performance Analysis</h1>
+    
+    <div class="container">
+        <div class="video-upload" id="videoUpload">
+            <p>📁 <strong>Drop a video file here or click to select</strong></p>
+            <input type="file" id="videoInput" accept="video/*" style="display: none;">
+            <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                Supported formats: MP4, WebM, MOV, AVI, etc.
+            </p>
+        </div>
+        
+        <div class="video-list" id="videoList" style="display: none;">
+            <h3>📂 Available Test Videos</h3>
+            <div id="videoFiles" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 10px;"></div>
+        </div>
+        
+        <div class="test-controls">
+            <label for="thumbnailSize">Thumbnail Size:</label>
+            <select id="thumbnailSize">
+                <option value="240">240px (Small)</option>
+                <option value="480" selected>480px (Medium)</option>
+                <option value="720">720px (Large)</option>
+                <option value="1080">1080px (XL)</option>
+            </select>
+            
+            <label for="timestamps">Timestamps:</label>
+            <input type="text" id="timestamps" value="0.1, 0.3, 0.5, 0.7, 0.9" placeholder="0.5 or 5000 or 0.1,0.5,0.9" style="width: 200px;">
+            <small style="color: #666;">0-1 = relative, ≥1 = milliseconds</small>
+            
+            <label for="quality">Quality:</label>
+            <input type="range" id="quality" min="0.1" max="1" step="0.1" value="0.8">
+            <span id="qualityValue">0.8</span>
+            
+            <label for="iterations">Iterations:</label>
+            <input type="number" id="iterations" value="5" min="1" max="10">
+            
+            <label>
+                <input type="checkbox" id="enableWarmup" checked> Warmup Pass
+            </label>
+            
+            <label>
+                <input type="checkbox" id="useObjectURL"> Use Object URLs
+            </label>
+            
+            <button id="runTest" disabled>🚀 Run Performance Analysis</button>
+        </div>
+    </div>
+    
+    <div class="progress" id="progress" style="display: none;"></div>
+    
+    <div class="container" id="resultsContainer" style="display: none;">
+        <h2>📊 Performance Results</h2>
+        
+        <div class="phase-comparison" id="phaseComparison">
+            <div class="phase-card">
+                <h4>🔄 Video Loading</h4>
+                <div id="loadPhaseResults"></div>
+            </div>
+            <div class="phase-card">
+                <h4>⏱️ Video Seeking</h4>
+                <div id="seekPhaseResults"></div>
+            </div>
+            <div class="phase-card">
+                <h4>🎨 Image Encoding</h4>
+                <div id="encodePhaseResults"></div>
+            </div>
+            <div class="phase-card">
+                <h4>📏 Total Time</h4>
+                <div id="totalPhaseResults"></div>
+            </div>
+        </div>
+        
+        <div class="performance-grid" id="performanceGrid"></div>
+        
+        <div class="summary" id="summary"></div>
+        
+        <table id="detailedResults" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Iter</th>
+                    <th>Format</th>
+                    <th>Load (ms)</th>
+                    <th>Seek (ms)</th>
+                    <th>Encode (ms)</th>
+                    <th>Other (ms)</th>
+                    <th>Total (ms)</th>
+                    <th>Size (KB)</th>
+                    <th>Efficiency</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        
+        <button id="showDetails" style="margin-top: 10px;">📋 Show Detailed Breakdown</button>
+    </div>
+
+    <script>
+        // folder.api (https://github.com/pseudosavant/folder.api): v1.0.1 - Simplified version
+        (function folderApiIIFE(global) {
+            'use strict';
+
+            function urlType(url) {
+                return url[url.length - 1] === '/' ? 'folder' : 'file';
+            }
+
+            function urlToFilename(url) {
+                const re = /\/([^/]+)$/;
+                const parts = re.exec(url);
+                return (parts && parts.length > 1 ? parts[1] : url);
+            }
+
+            async function getLinksFromFrame(frame, baseUrl) {
+                const links = [...frame.contentDocument.querySelectorAll('a')];
+                const files = [];
+
+                for (var i = 0; i < links.length; i++) {
+                    const link = links[i];
+                    const url = link.toString();
+                    const type = urlType(url);
+
+                    if (type === 'file') {
+                        const res = { 
+                            url,
+                            name: urlToFilename(url)
+                        };
+                        files.push(res);
+                    }
+                }
+                return { files };
+            }
+
+            async function folderApiRequest(url) {
+                const $frame = document.createElement('iframe');
+                $frame.style.visibility = 'hidden';
+                document.body.appendChild($frame);
+
+                const promise = new Promise((resolve, reject) => {
+                    $frame.onerror = reject;
+                    $frame.onload = async () => {
+                        const links = await getLinksFromFrame($frame, url);
+                        $frame.parentElement.removeChild($frame);
+                        resolve(links);
+                    };
+                });
+
+                $frame.src = url;
+                return promise;
+            }
+
+            global.folderApiRequest = folderApiRequest;
+        })(this);
+    </script>
+    <script type="module">
+        import videoThumbnail, { cleanupObjectURLs } from './video-thumbnail.js';
+        // Bind global helpers from the classic script into module scope
+        const folderApiRequest = globalThis.folderApiRequest;
+
+        class PerformanceAnalyzer {
+            constructor() {
+                this.videoFile = null;
+                this.videoURL = null;
+                this.results = [];
+                this.supportedVideoTypes = this.getSupportedVideoTypes();
+                this.initializeEventListeners();
+                this.loadVideoFiles();
+            }
+            
+            getSupportedVideoTypes() {
+                const supported = { extensions: [] };
+                const types = [
+                    { mime: 'video/mp4', extensions: ['mp4', 'm4v', 'mov'] },
+                    { mime: 'video/webm', extensions: ['webm'] },
+                    { mime: 'video/x-matroska', extensions: ['mkv'] },
+                    { mime: 'video/ogg', extensions: ['ogg'] }
+                ];
+
+                const v = document.createElement('video');
+                types.forEach(type => {
+                    if (v.canPlayType(type.mime) !== '') {
+                        supported.extensions.push(...type.extensions);
+                    }
+                });
+
+                return supported;
+            }
+            
+            isVideo(filename) {
+                const re = new RegExp(`\\.(${this.supportedVideoTypes.extensions.join('|')})$`, 'i');
+                return re.test(filename);
+            }
+            
+            async loadVideoFiles() {
+                try {
+                    const videosPath = '../videos/';
+                    const links = await folderApiRequest(videosPath);
+                    const videoFiles = links.files.filter(file => this.isVideo(file.name));
+                    
+                    if (videoFiles.length > 0) {
+                        this.displayVideoFiles(videoFiles, videosPath);
+                    }
+                } catch (error) {
+                    console.info('Could not load video files from /videos/ folder:', error.message);
+                    // This is expected when not running from a web server
+                }
+            }
+            
+            displayVideoFiles(videoFiles, basePath) {
+                const videoList = document.getElementById('videoList');
+                const videoFilesContainer = document.getElementById('videoFiles');
+                
+                videoList.style.display = 'block';
+                
+                videoFiles.forEach(file => {
+                    const videoItem = document.createElement('div');
+                    videoItem.className = 'video-item';
+                    videoItem.dataset.url = basePath + file.name;
+                    
+                    const cleanName = decodeURIComponent(file.name).replace(/\.[^/.]+$/, "");
+                    
+                    videoItem.innerHTML = `
+                        <div class="video-title">${cleanName}</div>
+                        <div class="video-info">Click to select for testing</div>
+                    `;
+                    
+                    videoItem.addEventListener('click', () => {
+                        // Remove selection from other items
+                        document.querySelectorAll('.video-item').forEach(item => {
+                            item.classList.remove('selected');
+                        });
+                        
+                        // Select this item
+                        videoItem.classList.add('selected');
+                        
+                        // Set as test video
+                        this.setVideoURL(videoItem.dataset.url, cleanName);
+                    });
+                    
+                    videoFilesContainer.appendChild(videoItem);
+                });
+            }
+            
+            setVideoURL(url, name) {
+                if (this.videoURL && this.videoURL.startsWith('blob:')) {
+                    URL.revokeObjectURL(this.videoURL);
+                }
+                
+                this.videoFile = null; // This is a URL, not a file
+                this.videoURL = url;
+                
+                document.getElementById('runTest').disabled = false;
+                document.getElementById('videoUpload').innerHTML = `
+                    <p>✅ <strong>Video selected: ${name}</strong></p>
+                    <p style="font-size: 12px; color: #666;">
+                        Source: ${url}
+                    </p>
+                `;
+            }
+            
+            initializeEventListeners() {
+                const videoUpload = document.getElementById('videoUpload');
+                const videoInput = document.getElementById('videoInput');
+                const runTest = document.getElementById('runTest');
+                const qualitySlider = document.getElementById('quality');
+                const qualityValue = document.getElementById('qualityValue');
+                const showDetails = document.getElementById('showDetails');
+                
+                // File upload handling
+                videoUpload.addEventListener('click', () => videoInput.click());
+                videoUpload.addEventListener('dragover', this.handleDragOver.bind(this));
+                videoUpload.addEventListener('drop', this.handleDrop.bind(this));
+                videoInput.addEventListener('change', this.handleFileSelect.bind(this));
+                
+                // Quality slider
+                qualitySlider.addEventListener('input', (e) => {
+                    qualityValue.textContent = e.target.value;
+                });
+                
+                // Test runner
+                runTest.addEventListener('click', this.runPerformanceAnalysis.bind(this));
+                
+                // Show/hide detailed results
+                showDetails.addEventListener('click', () => {
+                    const table = document.getElementById('detailedResults');
+                    const button = document.getElementById('showDetails');
+                    if (table.style.display === 'none') {
+                        table.style.display = 'table';
+                        button.textContent = '📋 Hide Detailed Breakdown';
+                    } else {
+                        table.style.display = 'none';
+                        button.textContent = '📋 Show Detailed Breakdown';
+                    }
+                });
+            }
+            
+            handleDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add('dragover');
+            }
+            
+            handleDrop(e) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.setVideoFile(files[0]);
+                }
+            }
+            
+            handleFileSelect(e) {
+                if (e.target.files.length > 0) {
+                    this.setVideoFile(e.target.files[0]);
+                }
+            }
+            
+            setVideoFile(file) {
+                if (this.videoURL && this.videoURL.startsWith('blob:')) {
+                    URL.revokeObjectURL(this.videoURL);
+                }
+                
+                // Clear any selected video items
+                document.querySelectorAll('.video-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                
+                this.videoFile = file;
+                this.videoURL = URL.createObjectURL(file);
+                
+                document.getElementById('runTest').disabled = false;
+                document.getElementById('videoUpload').innerHTML = `
+                    <p>✅ <strong>Video loaded: ${file.name}</strong></p>
+                    <p style="font-size: 12px; color: #666;">
+                        Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB | 
+                        Type: ${file.type}
+                    </p>
+                `;
+            }
+            
+            async runPerformanceAnalysis() {
+                const button = document.getElementById('runTest');
+                const progress = document.getElementById('progress');
+                const resultsContainer = document.getElementById('resultsContainer');
+                
+                button.disabled = true;
+                progress.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                
+                // Ensure any object URLs from previous runs are revoked before starting a new run
+                cleanupObjectURLs();
+                
+                try {
+                    const size = parseInt(document.getElementById('thumbnailSize').value);
+                    const timestampsInput = document.getElementById('timestamps').value.trim();
+                    const timestamps = this.parseTimestamps(timestampsInput);
+                    const quality = parseFloat(document.getElementById('quality').value);
+                    const iterations = parseInt(document.getElementById('iterations').value);
+                    const enableWarmup = document.getElementById('enableWarmup').checked;
+                    
+                    this.results = [];
+                    
+                    const formats = [
+                        { name: 'JPEG', mime: { type: 'image/jpeg', quality } },
+                        { name: 'WebP', mime: { type: 'image/webp', quality } },
+                        { name: 'PNG', mime: { type: 'image/png', quality: 1 } }
+                    ];
+                    
+                    // Randomize format order to eliminate first-run bias
+                    const shuffledFormats = [...formats].sort(() => Math.random() - 0.5);
+                    
+                    let totalTests = iterations * formats.length;
+                    let completedTests = 0;
+                    
+                    // Warmup phase
+                    if (enableWarmup) {
+                        progress.textContent = `🔥 Warming up video loading...`;
+                        await this.performWarmup(size, timestamps, shuffledFormats[0]);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                    progress.textContent = `🔄 Running ${iterations} iterations across ${formats.length} formats...`;
+                    
+                    for (let i = 0; i < iterations; i++) {
+                        // Use randomized order for each iteration to eliminate ordering bias
+                        const iterationFormats = [...formats].sort(() => Math.random() - 0.5);
+                        
+                        for (const format of iterationFormats) {
+                            completedTests++;
+                            progress.textContent = `🔄 Test ${completedTests}/${totalTests}: ${format.name} iteration ${i + 1}/${iterations}`;
+                            
+                            const result = await this.runSingleTest(size, timestamps, format, i + 1);
+                            this.results.push(result);
+                            
+                            // Small delay to prevent browser freeze and allow UI updates
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                        }
+                    }
+                    
+                    this.displayResults();
+                    progress.style.display = 'none';
+                    resultsContainer.style.display = 'block';
+                    
+                } catch (error) {
+                    progress.innerHTML = `<div class="error">❌ Analysis failed: ${error.message}</div>`;
+                    console.error('Performance analysis failed:', error);
+                } finally {
+                    button.disabled = false;
+                }
+            }
+            
+            parseTimestamps(input) {
+                if (!input) return [0.5]; // Default fallback
+                
+                try {
+                    // Split by comma and parse each timestamp
+                    const timestamps = input.split(',').map(t => {
+                        const parsed = parseFloat(t.trim());
+                        if (isNaN(parsed) || parsed < 0) {
+                            throw new Error(`Invalid timestamp: ${t.trim()}`);
+                        }
+                        return parsed;
+                    });
+                    
+                    if (timestamps.length === 0) {
+                        return [0.5]; // Default fallback
+                    }
+                    
+                    return timestamps;
+                } catch (error) {
+                    console.error('Error parsing timestamps:', error);
+                    alert(`Invalid timestamp format: ${input}\n\nUse comma-separated values like: 0.5 or 5000 or 0.1,0.5,0.9`);
+                    return [0.5]; // Fallback
+                }
+            }
+            
+            async performWarmup(size, timestamps, format) {
+                try {
+                    const useObjectURL = document.getElementById('useObjectURL').checked;
+                    // Do a complete warmup run through the library (first timestamp only)
+                    await videoThumbnail(this.videoURL, {
+                        timestamps: [timestamps[0]],
+                        size,
+                        mime: format.mime,
+                        type: useObjectURL ? 'objectURL' : 'dataURI',
+                        cache: false
+                    });
+                } catch (error) {
+                    console.warn('Warmup failed (this is usually fine):', error.message);
+                }
+            }
+            
+            async runSingleTest(size, timestamps, format, iteration) {
+                const startTime = performance.now();
+                
+                // Timing markers
+                const timing = {
+                    totalStart: startTime,
+                    loadStart: null,
+                    loadEnd: null,
+                    seekStart: null,
+                    seekEnd: null,
+                    encodeStart: null,
+                    encodeEnd: null,
+                    totalEnd: null
+                };
+                
+                try {
+                    // Generate thumbnails via the library; it handles loading, seeking, and capture
+                    const useObjectURL = document.getElementById('useObjectURL').checked;
+                    const result = await videoThumbnail(this.videoURL, {
+                        timestamps,
+                        size,
+                        mime: format.mime,
+                        type: useObjectURL ? 'objectURL' : 'dataURI',
+                        cache: false
+                    });
+                    
+                    timing.totalEnd = performance.now();
+                    
+                    if (result && result.length > 0) {
+                        // Calculate total size for all thumbnails
+                        const totalSize = result.reduce((sum, thumb) => sum + thumb.sizeKB, 0);
+                        const avgSeekTime = result.reduce((sum, thumb) => sum + thumb.seekTime, 0) / result.length;
+
+                        // Pull detailed timings from the library (attached to returned array)
+                        const libTiming = result.timing || null;
+                        const loadMs = libTiming && typeof libTiming.loadMs === 'number' ? libTiming.loadMs : 0;
+                        const seekMs = libTiming && typeof libTiming.seekMsTotal === 'number' ? libTiming.seekMsTotal : 0;
+                        const encodeMs = libTiming && typeof libTiming.encodeMsTotal === 'number' ? libTiming.encodeMsTotal : 0;
+                        const totalMs = libTiming && typeof libTiming.totalMs === 'number' ? libTiming.totalMs : (timing.totalEnd - timing.totalStart);
+                        
+                        return {
+                            iteration,
+                            format: format.name,
+                            timing: {
+                                load: loadMs,
+                                seek: seekMs,
+                                encode: encodeMs,
+                                total: totalMs,
+                                other: 0 // Will be calculated later
+                            },
+                            size: totalSize,
+                            thumbnailCount: result.length,
+                            avgSizePerThumbnail: totalSize / result.length,
+                            // Store all thumbnail URIs for preview/gallery
+                            uris: result.map(r => r.URI),
+                            seekTime: avgSeekTime,
+                            timestamps: timestamps.slice(), // Copy of requested timestamps
+                            success: true
+                        };
+                    } else {
+                        throw new Error(`No thumbnails generated for ${format.name}`);
+                    }
+                } catch (error) {
+                    timing.totalEnd = performance.now();
+                    console.error(`Error in ${format.name} test:`, error);
+                    return {
+                        iteration,
+                        format: format.name,
+                        timing: {
+                            load: 0,
+                            seek: 0,
+                            encode: 0,
+                            total: timing.totalEnd - timing.totalStart,
+                            other: 0
+                        },
+                        size: 0,
+                        uri: null,
+                        error: error.message,
+                        success: false
+                    };
+                }
+            }
+            
+            async timedVideoThumbnail(url, options, timing) {
+                // Create a fresh video element for each test to ensure consistent loading timing
+                const video = document.createElement('video');
+                video.crossOrigin = 'anonymous';
+                video.muted = true;
+                video.autoplay = false;
+                video.preload = 'auto';
+                video.playsInline = true;
+
+                const withTimeout = (promise, ms, label) => {
+                    let timer;
+                    return Promise.race([
+                        promise.finally(() => clearTimeout(timer)),
+                        new Promise((_, reject) => {
+                            timer = setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+                        })
+                    ]);
+                };
+
+                const waitForLoadedMetadata = (v) => new Promise((resolve, reject) => {
+                    // If metadata is already available, resolve immediately
+                    if (v.readyState >= 1 || (v.videoWidth && v.videoHeight)) {
+                        resolve();
+                        return;
+                    }
+                    const onLoaded = () => resolve();
+                    const onError = (e) => reject(e instanceof Error ? e : new Error('Video error'));
+                    v.addEventListener('loadedmetadata', onLoaded, { once: true });
+                    v.addEventListener('error', onError, { once: true });
+                });
+
+                const waitForSeekTo = (v, targetSeconds) => new Promise((resolve) => {
+                    // If already at or very near target and not seeking, resolve
+                    if (!v.seeking && Math.abs(v.currentTime - targetSeconds) < 0.01) {
+                        resolve();
+                        return;
+                    }
+                    v.addEventListener('seeked', () => resolve(), { once: true });
+                });
+
+                const waitForNextFrame = (v) => new Promise((resolve) => {
+                    // Prefer requestVideoFrameCallback if available
+                    if (typeof v.requestVideoFrameCallback === 'function') {
+                        let resolved = false;
+                        const fallback = setTimeout(() => { if (!resolved) { resolved = true; resolve(); } }, 120);
+                        v.requestVideoFrameCallback(() => { if (!resolved) { resolved = true; clearTimeout(fallback); resolve(); } });
+                    } else {
+                        // Fallback: two RAFs to give the browser a beat to present the new frame
+                        requestAnimationFrame(() => requestAnimationFrame(resolve));
+                    }
+                });
+
+                const waitForPresentedFrame = (v, targetSeconds) => new Promise((resolve) => {
+                    if (typeof v.requestVideoFrameCallback !== 'function') {
+                        // Best effort fallback
+                        requestAnimationFrame(() => requestAnimationFrame(resolve));
+                        return;
+                    }
+                    const deadline = performance.now() + 600; // ~0.6s budget before giving up
+                    const epsilon = 0.025; // 25ms tolerance
+                    const loop = () => {
+                        v.requestVideoFrameCallback((now, metadata) => {
+                            if (metadata && typeof metadata.mediaTime === 'number') {
+                                if (Math.abs(metadata.mediaTime - targetSeconds) <= epsilon) {
+                                    resolve();
+                                    return;
+                                }
+                            }
+                            if (performance.now() > deadline) {
+                                resolve(); // give up, proceed with best effort
+                            } else {
+                                loop();
+                            }
+                        });
+                    };
+                    loop();
+                });
+
+                return new Promise(async (resolve, reject) => {
+                    // Add random cache busting parameter to ensure fresh load (not for blob URLs)
+                    const isBlob = typeof url === 'string' && url.startsWith('blob:');
+                    const testUrl = isBlob ? url : url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now() + Math.random();
+
+                    try {
+                        if (timing.loadStart !== undefined) {
+                            timing.loadStart = performance.now();
+                        }
+
+                        video.src = testUrl;
+                        video.load();
+
+                        // Wait for metadata (duration, dimensions)
+                        await withTimeout(waitForLoadedMetadata(video), 8000, 'loadedmetadata');
+                        if (timing.loadEnd !== undefined) {
+                            timing.loadEnd = performance.now();
+                        }
+
+                        // Ensure we have valid dimensions
+                        const vw = video.videoWidth || 0;
+                        const vh = video.videoHeight || 0;
+                        if (vw === 0 || vh === 0) {
+                            throw new Error('Video metadata not available (zero dimensions)');
+                        }
+
+                        const results = [];
+
+                        for (let i = 0; i < options.timestamps.length; i++) {
+                            const timestamp = options.timestamps[i];
+                            const isFirstSeek = i === 0;
+
+                            // Convert timestamp: 0-1 = relative, >=1 = absolute milliseconds
+                            const targetSeconds = timestamp < 1 ? (timestamp * video.duration) : (timestamp / 1000);
+                            // Avoid exact 0 or exact duration edge for some decoders
+                            const epsilon = 0.01;
+                            const maxT = Math.max(0, video.duration - 0.05);
+                            const clamped = Math.min(Math.max(targetSeconds, epsilon), maxT);
+
+                            // Perform seek
+                            const seekStart = performance.now();
+                            video.currentTime = clamped;
+                            await withTimeout(waitForSeekTo(video, clamped), 8000, 'seeked');
+                            // Briefly play to force frame presentation, then pause before capture
+                            try { await video.play(); } catch {}
+                            await waitForPresentedFrame(video, clamped);
+                            video.pause();
+                            const seekEnd = performance.now();
+                            if (isFirstSeek && timing.seekStart !== undefined) {
+                                timing.seekStart = seekStart;
+                                timing.seekEnd = seekEnd;
+                            }
+
+                            // Time encoding
+                            const encodeStart = performance.now();
+
+                            const aspectRatio = video.videoHeight / video.videoWidth;
+                            const w = Math.min(options.size, 32767);
+                            const h = Math.min(Math.round(w * aspectRatio), 32767);
+
+                            const canvas = document.createElement('canvas');
+                            canvas.width = w;
+                            canvas.height = h;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0, w, h);
+
+                            const dataURL = canvas.toDataURL(options.mime.type, options.mime.quality);
+
+                            const encodeEnd = performance.now();
+                            if (i === 0 && timing.encodeStart !== undefined) {
+                                timing.encodeStart = encodeStart;
+                            }
+
+                            results.push({
+                                URI: dataURL,
+                                timestamp: timestamp,
+                                seekTime: clamped,
+                                sizeKB: Math.round(dataURL.length / 1024 * 100) / 100,
+                                mime: options.mime
+                            });
+                        }
+
+                        if (timing.encodeEnd !== undefined) {
+                            timing.encodeEnd = performance.now();
+                        }
+
+                        // Cleanup
+                        video.removeAttribute('src');
+                        video.load();
+
+                        resolve(results);
+                    } catch (error) {
+                        try {
+                            video.removeAttribute('src');
+                            video.load();
+                        } catch {}
+                        if (timing.loadEnd !== undefined && !timing.loadEnd) {
+                            timing.loadEnd = performance.now();
+                        }
+                        if (timing.seekEnd !== undefined && !timing.seekEnd) {
+                            timing.seekEnd = performance.now();
+                        }
+                        if (timing.encodeEnd !== undefined && !timing.encodeEnd) {
+                            timing.encodeEnd = performance.now();
+                        }
+                        reject(error);
+                    }
+                });
+            }
+            
+            calculateStats(values) {
+                const validValues = values.filter(v => v > 0);
+                if (validValues.length === 0) return { avg: 0, min: 0, max: 0, std: 0 };
+                
+                const avg = validValues.reduce((a, b) => a + b, 0) / validValues.length;
+                const min = Math.min(...validValues);
+                const max = Math.max(...validValues);
+                const std = Math.sqrt(validValues.reduce((sq, n) => sq + Math.pow(n - avg, 2), 0) / validValues.length);
+                
+                return { avg, min, max, std };
+            }
+            
+            displayResults() {
+                // Group results by format
+                const formatResults = {};
+                this.results.forEach(result => {
+                    if (!formatResults[result.format]) {
+                        formatResults[result.format] = [];
+                    }
+                    formatResults[result.format].push(result);
+                });
+                
+                // Calculate statistics for each format
+                const formatStats = {};
+                Object.keys(formatResults).forEach(format => {
+                    const results = formatResults[format].filter(r => r.success);
+                    
+                    if (results.length > 0) {
+                        // Calculate 'other' time (total - load - seek - encode)
+                        results.forEach(result => {
+                            const { load, seek, encode, total } = result.timing;
+                            result.timing.other = Math.max(0, total - load - seek - encode);
+                        });
+                        
+                        formatStats[format] = {
+                            load: this.calculateStats(results.map(r => r.timing.load)),
+                            seek: this.calculateStats(results.map(r => r.timing.seek)),
+                            encode: this.calculateStats(results.map(r => r.timing.encode)),
+                            other: this.calculateStats(results.map(r => r.timing.other)),
+                            total: this.calculateStats(results.map(r => r.timing.total)),
+                            size: this.calculateStats(results.map(r => r.size)),
+                            thumbnailCount: this.calculateStats(results.map(r => r.thumbnailCount || 1)),
+                            avgSizePerThumbnail: this.calculateStats(results.map(r => r.avgSizePerThumbnail || r.size)),
+                            successRate: (results.length / formatResults[format].length) * 100
+                        };
+                    }
+                });
+                
+                this.displayPhaseComparison(formatStats);
+                this.displayFormatResults(formatStats, formatResults);
+                this.displaySummary(formatStats);
+                this.displayDetailedTable();
+            }
+            
+            displayPhaseComparison(formatStats) {
+                const phases = ['load', 'seek', 'encode', 'total'];
+                const phaseNames = {
+                    load: 'Video Loading',
+                    seek: 'Video Seeking', 
+                    encode: 'Image Encoding',
+                    total: 'Total Time'
+                };
+                
+                phases.forEach(phase => {
+                    const container = document.getElementById(`${phase}PhaseResults`);
+                    let html = '';
+                    
+                    const phaseData = Object.keys(formatStats).map(format => ({
+                        format,
+                        time: formatStats[format][phase].avg
+                    })).sort((a, b) => a.time - b.time);
+                    
+                    if (phaseData.length > 0) {
+                        const fastest = phaseData[0];
+                        const slowest = phaseData[phaseData.length - 1];
+                        
+                        phaseData.forEach(data => {
+                            const isFastest = data === fastest;
+                            const isSlowest = data === slowest && phaseData.length > 1;
+                            
+                            html += `
+                                <div class="phase-times">
+                                    <span>${data.format} ${isFastest ? '🥇' : isSlowest ? '🥉' : '🥈'}</span>
+                                    <span><strong>${data.time.toFixed(2)}ms</strong></span>
+                                </div>
+                            `;
+                        });
+                        
+                        if (phaseData.length > 1) {
+                            const improvement = ((slowest.time - fastest.time) / slowest.time * 100).toFixed(1);
+                            html += `<div style="font-size: 11px; color: #666; margin-top: 8px;">
+                                ${fastest.format} is ${improvement}% faster
+                            </div>`;
+                        }
+                    }
+                    
+                    container.innerHTML = html;
+                });
+            }
+            
+            displayFormatResults(formatStats, formatResults) {
+                const grid = document.getElementById('performanceGrid');
+                grid.innerHTML = '';
+
+                // Find fastest and slowest overall
+                const totalTimes = Object.keys(formatStats)
+                    .map(format => ({ format, time: formatStats[format].total.avg }))
+                    .sort((a, b) => a.time - b.time);
+
+                const fastest = totalTimes[0]?.format;
+                const slowest = totalTimes[totalTimes.length - 1]?.format;
+
+                Object.keys(formatStats).forEach(format => {
+                    const stats = formatStats[format];
+                    // Prefer a sample that has the most thumbnails generated
+                    const sampleResult = (formatResults[format] || [])
+                        .filter(r => r.success && Array.isArray(r.uris) && r.uris.length > 0)
+                        .sort((a, b) => (b.uris.length || 0) - (a.uris.length || 0))[0] || null;
+
+                    const formatDiv = document.createElement('div');
+                    formatDiv.className = 'format-result';
+
+                    if (format === fastest) formatDiv.classList.add('fastest');
+                    if (format === slowest) formatDiv.classList.add('slowest');
+
+                    // Create timing breakdown bar
+                    const total = stats.total.avg || 1; // avoid division by zero
+                    const loadPct = (stats.load.avg / total * 100).toFixed(1);
+                    const seekPct = (stats.seek.avg / total * 100).toFixed(1);
+                    const encodePct = (stats.encode.avg / total * 100).toFixed(1);
+                    const otherPct = (stats.other.avg / total * 100).toFixed(1);
+
+                    const thumbsHtml = sampleResult && sampleResult.uris?.length
+                        ? `<div class="thumbnail-preview">${sampleResult.uris.map((u, idx) => (
+                              `<img src="${u}" alt="${format} thumbnail ${idx + 1}" title="${format} thumbnail ${idx + 1}">`
+                           )).join('')}</div>`
+                        : '';
+
+                    formatDiv.innerHTML = `
+                        <h3>${format} ${format === fastest ? '🥇' : format === slowest ? '🥉' : '🥈'}</h3>
+
+                        <div class="timing-breakdown">
+                            <h4>Performance Breakdown</h4>
+                            <div class="timing-bar">
+                                <div class="timing-segment load-time" style="width: ${loadPct}%" title="Load: ${stats.load.avg.toFixed(2)}ms">
+                                    ${Number(loadPct) > 15 ? 'Load' : ''}
+                                </div>
+                                <div class="timing-segment seek-time" style="width: ${seekPct}%" title="Seek: ${stats.seek.avg.toFixed(2)}ms">
+                                    ${Number(seekPct) > 15 ? 'Seek' : ''}
+                                </div>
+                                <div class="timing-segment encode-time" style="width: ${encodePct}%" title="Encode: ${stats.encode.avg.toFixed(2)}ms">
+                                    ${Number(encodePct) > 15 ? 'Encode' : ''}
+                                </div>
+                                <div class="timing-segment other-time" style="width: ${otherPct}%" title="Other: ${stats.other.avg.toFixed(2)}ms">
+                                    ${Number(otherPct) > 15 ? 'Other' : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric">
+                            <span class="metric-label">Total Time:</span>
+                            <span class="metric-value">${stats.total.avg.toFixed(2)} ms</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Load Time:</span>
+                            <span class="metric-value">${stats.load.avg.toFixed(2)} ms</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Seek Time:</span>
+                            <span class="metric-value">${stats.seek.avg.toFixed(2)} ms</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Encode Time:</span>
+                            <span class="metric-value">${stats.encode.avg.toFixed(2)} ms</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Size:</span>
+                            <span class="metric-value">${stats.size.avg.toFixed(2)} KB</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Per Thumbnail:</span>
+                            <span class="metric-value">${stats.avgSizePerThumbnail ? stats.avgSizePerThumbnail.avg.toFixed(2) : 'N/A'} KB</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Thumbnails:</span>
+                            <span class="metric-value">${stats.thumbnailCount ? stats.thumbnailCount.avg.toFixed(0) : 'N/A'}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Success Rate:</span>
+                            <span class="metric-value">${stats.successRate.toFixed(1)}%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Efficiency:</span>
+                            <span class="metric-value">${(stats.size.avg / stats.total.avg).toFixed(2)} KB/ms</span>
+                        </div>
+                        ${thumbsHtml}
+                    `;
+
+                    grid.appendChild(formatDiv);
+                });
+            }
+
+            displaySummary(formatStats) {
+                const summary = document.getElementById('summary');
+                const formats = Object.keys(formatStats);
+                if (formats.length === 0) {
+                    summary.innerHTML = '<h3>No successful results to analyze</h3>';
+                    return;
+                }
+
+                // Find best performers in each category
+                const fastest = formats.reduce((best, format) =>
+                    formatStats[format].total.avg < formatStats[best].total.avg ? format : best
+                );
+
+                const mostEfficient = formats.reduce((best, format) =>
+                    (formatStats[format].size.avg / formatStats[format].total.avg) >
+                    (formatStats[best].size.avg / formatStats[best].total.avg) ? format : best
+                );
+
+                const smallest = formats.reduce((best, format) =>
+                    formatStats[format].size.avg < formatStats[best].size.avg ? format : best
+                );
+
+                const warmupUsed = document.getElementById('enableWarmup').checked;
+                const timestampsUsed = document.getElementById('timestamps').value;
+                const sampleResult = this.results.find(r => r.success);
+                const thumbnailCount = sampleResult ? sampleResult.thumbnailCount || 1 : 1;
+
+                summary.innerHTML = `
+                    <h3>📈 Performance Summary</h3>
+                    <p><strong>🏆 Fastest Overall:</strong> ${fastest} (${formatStats[fastest].total.avg.toFixed(2)}ms average)</p>
+                    <p><strong>📏 Smallest Files:</strong> ${smallest} (${formatStats[smallest].size.avg.toFixed(2)}KB total)</p>
+                    <p><strong>⚡ Most Efficient:</strong> ${mostEfficient} (${(formatStats[mostEfficient].size.avg / formatStats[mostEfficient].total.avg).toFixed(2)} KB/ms)</p>
+                    <p><strong>🔍 Key Insight:</strong> ${this.generateInsight(formatStats)}</p>
+                    <p><strong>📊 Test Conditions:</strong> ${this.results.length / formats.length} iterations per format, ${document.getElementById('thumbnailSize').value}px thumbnails, ${thumbnailCount} timestamp(s)${warmupUsed ? ', with warmup' : ''}</p>
+                    <p><strong>⏱️ Timestamps Used:</strong> ${timestampsUsed} (0-1 = relative position, ≥1 = milliseconds)</p>
+                    <p><strong>🎯 Test Methodology:</strong> Fresh video elements, randomized format order${warmupUsed ? ', warmup pass to eliminate cold-start bias' : ''}</p>
+                `;
+            }
+
+            generateInsight(formatStats) {
+                const formats = Object.keys(formatStats);
+                if (formats.length < 2) return "Need multiple formats for comparison";
+                const jpegStats = formatStats['JPEG'];
+                const webpStats = formatStats['WebP'];
+                const pngStats = formatStats['PNG'];
+                if (jpegStats && webpStats) {
+                    const timeDiff = ((webpStats.total.avg - jpegStats.total.avg) / jpegStats.total.avg * 100);
+                    const sizeDiff = ((jpegStats.size.avg - webpStats.size.avg) / webpStats.size.avg * 100);
+                    if (timeDiff > 10) {
+                        return `JPEG is ${timeDiff.toFixed(1)}% faster than WebP, with ${sizeDiff.toFixed(1)}% larger files`;
+                    } else {
+                        return `JPEG and WebP have similar performance (${Math.abs(timeDiff).toFixed(1)}% difference)`;
+                    }
+                }
+                return "Performance varies significantly by format and use case";
+            }
+
+            displayDetailedTable() {
+                const tbody = document.querySelector('#detailedResults tbody');
+                tbody.innerHTML = '';
+                this.results.forEach(result => {
+                    const row = document.createElement('tr');
+                    const efficiency = result.success ? (result.size / result.timing.total).toFixed(2) : '-';
+                    row.innerHTML = `
+                        <td>${result.iteration}</td>
+                        <td>${result.format}</td>
+                        <td>${result.timing.load.toFixed(2)}</td>
+                        <td>${result.timing.seek.toFixed(2)}</td>
+                        <td>${result.timing.encode.toFixed(2)}</td>
+                        <td>${result.timing.other.toFixed(2)}</td>
+                        <td><strong>${result.timing.total.toFixed(2)}</strong></td>
+                        <td>${result.success ? result.size.toFixed(2) : 'Error'}${result.thumbnailCount > 1 ? ` (${result.thumbnailCount}×)` : ''}</td>
+                        <td>${efficiency}</td>
+                    `;
+                    if (!result.success) {
+                        row.style.background = '#ffebee';
+                    }
+                    tbody.appendChild(row);
+                });
+            }
+        }
+
+        // Initialize the analyzer when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new PerformanceAnalyzer();
+        });
+    </script>
+</body>
+</html>

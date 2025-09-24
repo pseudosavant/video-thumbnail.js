@@ -1,0 +1,36 @@
+{
+  "name": "video-thumbnail.js",
+  "version": "2.0.0",
+  "description": "Generate video thumbnails in the browser as data URIs or object URLs (ESM only)",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/video-thumbnail.js",
+      "types": "./src/video-thumbnail.d.ts",
+      "default": "./src/video-thumbnail.js"
+    }
+  },
+  "types": "./src/video-thumbnail.d.ts",
+  "files": [
+    "src/video-thumbnail.js",
+    "src/video-thumbnail.d.ts"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pseudosavant/video-thumbnail.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pseudosavant/video-thumbnail.js/issues"
+  },
+  "homepage": "https://github.com/pseudosavant/video-thumbnail.js#readme",
+  "keywords": [
+    "video",
+    "thumbnail",
+    "browser",
+    "canvas",
+    "datauri",
+    "objecturl",
+    "esm"
+  ]
+}
