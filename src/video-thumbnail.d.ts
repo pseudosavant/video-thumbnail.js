@@ -134,7 +134,7 @@ declare namespace videoThumbnail {
   /** Output type: data URI (default) or object URL from a Blob */
   type OutputType = 'dataURI' | 'objectURL';
 
-  /** Timestamp(s) to capture. Values in (0,1) are treated as relative seconds; >= 1 as absolute seconds. */
+  /** Timestamp(s) to capture. Values in [0,1) are treated as relative seconds; >= 1 as absolute seconds. */
   type Timestamps = number | number[];
 
   type TimingPhase = 'load' | 'seek' | 'encode' | 'total';

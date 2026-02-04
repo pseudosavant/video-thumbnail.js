@@ -48,7 +48,7 @@ const findCachedKey = (cacheKeySuffix, cacheKeyPrefix = defaults.cacheKeyPrefix)
   return null;
 }
 
-const betweenZeroAndOne = (n) => (n > 0 && n < 1);
+const betweenZeroAndOne = (n) => (n >= 0 && n < 1);
 
 const is = (type) => (v) => typeof v === type;
 const isNumber = is('number');
@@ -243,14 +243,13 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
   let seekMs = 0;
   let encodeMs = 0;
   if (isSeekable($player)) {
-    // Interpret timestamp: 0-1 => relative; otherwise seconds or milliseconds (auto-detect)
+    // Interpret timestamp: [0,1) => relative; otherwise absolute seconds
     const relSeconds = timestamp * $player.duration;
-    const assumeMs = !betweenZeroAndOne(timestamp) && (timestamp > ($player.duration + 1));
     const requestedSeconds = betweenZeroAndOne(timestamp)
       ? relSeconds
-      : (assumeMs ? (timestamp / 1000) : timestamp);
+      : timestamp;
 
-    const epsilon = 0.01;
+    const epsilon = 0;
     const maxT = Math.max(0, $player.duration - 0.05);
     if (!betweenZeroAndOne(timestamp) && requestedSeconds > $player.duration) {
       console.warn(`[${defaults.cacheKeyPrefix}] Timestamp ${timestamp} exceeds video duration ${$player.duration}s, using end of video`);

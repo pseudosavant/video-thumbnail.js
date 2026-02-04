@@ -29,7 +29,7 @@ import videoThumbnail, { clearCache } from 'video-thumbnail.js';
 
 const url = 'https://example.com/video.mp4';
 const options = {
-  timestamps: [0.1, 0.5, 10], // relative (0..1) or absolute seconds (>=1)
+  timestamps: [0.1, 0.5, 10], // relative [0..1) or absolute seconds (>= 1)
   size: 480,                  // width in px, height is based on aspect ratio
   type: 'dataURI',            // 'dataURI' (default) or 'objectURL'
   cache: true,                // use localStorage caching
@@ -51,9 +51,32 @@ clearCache('my-thumbs');
 import videoThumbnail, { cleanupObjectURLs } from 'video-thumbnail.js';
 
 const thumbs = await videoThumbnail('/videos/sample.mp4', { type: 'objectURL' });
-// Use thumbs[0].URI in an <img src="...">, then when finished:
+// Use thumbs[0].URI in an <img src=\"...\">, then when finished:
 cleanupObjectURLs();
 ```
+
+### Timing instrumentation
+
+```js
+import videoThumbnail from 'video-thumbnail.js';
+
+const thumbs = await videoThumbnail('https://example.com/video.mp4', {
+  timestamps: [0.1, 0.5],
+  onTiming: (e) => console.log(e.phase, e.when, e.index, e.ts),
+});
+
+console.log(thumbs.timing);
+```
+
+### Local testing
+
+This project includes a small browser harness and sample media files.
+
+```bash
+npx http-server .
+```
+
+Then open `/src/performance-test.html` through the server URL. The `videos/` folder contains local test media.
 
 ## API
 
@@ -71,13 +94,13 @@ Named exports:
 
 Options:
 
-- `timestamps`: number | number[] — values in (0,1) are relative; >= 1 are absolute seconds
-- `size`: number — output width in px (height maintains aspect ratio)
+- `timestamps`: number | number[] - values in [0,1) are relative; >= 1 are absolute seconds
+- `size`: number - output width in px (height maintains aspect ratio)
 - `mime`: `{ type: 'image/jpeg' | 'image/webp' | 'image/png', quality?: number }`
 - `type`: 'dataURI' | 'objectURL'
 - `cache`: boolean
 - `cacheKeyPrefix`: string
-- `cacheReadOnly`: boolean (read cache only; don’t generate)
+- `cacheReadOnly`: boolean (read cache only; don't generate)
 - `onTiming`: (event) => void (receive per-phase timing)
 
 Result:
@@ -87,9 +110,15 @@ Result:
 
 ## Notes
 
-- Requires a web server (don’t open modules via file://). Use a dev server so the browser can import modules by URL.
+- Requires a web server (don't open modules via file://). Use a dev server so the browser can import modules by URL.
 - Video URLs must be same-origin or support CORS.
 - JPEG is the default and most widely supported output. WebP support for canvas encoding is browser-dependent.
+- Caching applies to data URIs only. Object URLs are never stored in localStorage.
+
+## Performance notes
+
+- `type: 'objectURL'` uses async encoding (Blob) and is typically smoother for batch generation than `toDataURL`.
+- Smaller `size` reduces draw/encode time but does not change seek time (seek cost is driven by the source video).
 
 ## Supported Browsers
 
@@ -104,4 +133,4 @@ Latest versions of:
 
 [MIT](./LICENSE)
 
-© 2025 Paul Ellis
+(c) 2025 Paul Ellis
