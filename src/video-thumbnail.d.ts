@@ -40,6 +40,8 @@ export interface Options {
   cacheKeyPrefix?: string;
   /** If true, only read from cache; do not generate new thumbnails. */
   cacheReadOnly?: boolean;
+  /** Enable console logging for debug output (default: false). */
+  debug?: boolean;
   /** Optional callback for detailed timing instrumentation. */
   onTiming?: (event: TimingEvent) => void;
 }
@@ -171,6 +173,8 @@ declare namespace videoThumbnail {
     cacheKeyPrefix?: string;
     /** If true, only read from cache; do not generate new thumbnails. */
     cacheReadOnly?: boolean;
+    /** Enable console logging for debug output (default: false). */
+    debug?: boolean;
     /** Optional callback for detailed timing instrumentation. */
     onTiming?: (event: TimingEvent) => void;
   }

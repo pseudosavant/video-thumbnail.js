@@ -101,6 +101,7 @@ Options:
 - `cache`: boolean
 - `cacheKeyPrefix`: string
 - `cacheReadOnly`: boolean (read cache only; don't generate)
+- `debug`: boolean (enable console logging; default false)
 - `onTiming`: (event) => void (receive per-phase timing)
 
 Result:

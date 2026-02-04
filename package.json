@@ -1,6 +1,6 @@
 {
   "name": "video-thumbnail.js",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "description": "Generate video thumbnails in the browser as data URIs or object URLs (ESM only)",
   "license": "MIT",
   "type": "module",

@@ -1,4 +1,4 @@
-// video-thumbnail.js v2.0.0
+// video-thumbnail.js v2.0.2
 // https://github.com/pseudosavant/video-thumbnail.js
 // © 2025 Paul Ellis (https://github.com/pseudosavant)
 // License: MIT
@@ -9,31 +9,35 @@ const defaults = {
   mime: { type: 'image/jpeg', quality: 0.5 },
   type: 'dataURI',
   cache: false,
-  cacheKeyPrefix: 'video-thumbnail.js'
+  cacheKeyPrefix: 'video-thumbnail.js',
+  debug: false
 };
 
 const round = (val, digits) => +val.toFixed(digits);
 
-const store = (key, val) => {
+let lastDebug = defaults.debug;
+let lastCacheKeyPrefix = defaults.cacheKeyPrefix;
+
+const store = (key, val, debug = false, cacheKeyPrefix = defaults.cacheKeyPrefix) => {
   try {
     localStorage.setItem(key, val);
-    console.info(`[${defaults.cacheKeyPrefix}] Persisted to localStorage: ${key}`);
+    if (debug) console.info(`[${cacheKeyPrefix}] Persisted to localStorage: ${key}`);
     return true;
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
-      console.warn(`[${defaults.cacheKeyPrefix}] localStorage quota exceeded: unable to persist ${key}`)
+      if (debug) console.warn(`[${cacheKeyPrefix}] localStorage quota exceeded: unable to persist ${key}`)
     } else {
-      console.warn(`[${defaults.cacheKeyPrefix}] Failed to store in localStorage: ${key} (${e.name})`, e);
+      if (debug) console.warn(`[${cacheKeyPrefix}] Failed to store in localStorage: ${key} (${e.name})`, e);
     }
     return null;
   }
 }
 
-const retrieve = (key) => {
+const retrieve = (key, debug = false, cacheKeyPrefix = defaults.cacheKeyPrefix) => {
   try {
     return localStorage.getItem(key);
   } catch (e) {
-    console.warn(`[${defaults.cacheKeyPrefix}] Failed to retrieve from localStorage: ${key}`, e);
+    if (debug) console.warn(`[${cacheKeyPrefix}] Failed to retrieve from localStorage: ${key}`, e);
     return null;
   }
 }
@@ -56,8 +60,11 @@ const isString = is('string');
 const isBoolean = is('boolean');
 const isUndefined = is('undefined');
 
-const canCache = (function(){
-  const falseMessage = `[${defaults.cacheKeyPrefix}] Thumbnail caching support: false`;
+let _canCache;
+const canCache = (debug = false, cacheKeyPrefix = defaults.cacheKeyPrefix) => {
+  if (!isUndefined(_canCache)) return _canCache;
+
+  const falseMessage = `[${cacheKeyPrefix}] Thumbnail caching support: false`;
   try {
     const key = '__canCacheTest__';
     const val = 'true';
@@ -66,14 +73,15 @@ const canCache = (function(){
     const supported = localStorage.getItem(key) === val;
     localStorage.removeItem(key);
 
-  if (!supported) console.info(falseMessage);
-
+    if (!supported && debug) console.info(falseMessage);
+    _canCache = supported;
     return supported;
   } catch (e) {
-    console.info(falseMessage);
+    if (debug) console.info(falseMessage);
+    _canCache = false;
     return false;
   }
-})();
+};
 
 const getVideo = (url, timeout = 10000, onTiming) => {
   const $player = document.createElement('video');
@@ -224,7 +232,7 @@ const _waitForPresentedFrame = (video, targetSeconds, budgetMs = 600) => {
   });
 };
 
-const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTiming, index) => {
+const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTiming, index, debug = false, cacheKeyPrefix = defaults.cacheKeyPrefix) => {
   const start = performance.now();
   const $player = videoElement;
 
@@ -234,7 +242,7 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
   const h = Math.max(1, Math.min(32767, w * aspectRatio));
 
   if (w !== size) {
-    console.warn(`[${defaults.cacheKeyPrefix}] Canvas width clamped from ${size} to ${w}`);
+    if (debug) console.warn(`[${cacheKeyPrefix}] Canvas width clamped from ${size} to ${w}`);
   }
 
   const { canvas: c, ctx } = getCanvas(w, h, type === 'objectURL');
@@ -252,7 +260,7 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
     const epsilon = 0;
     const maxT = Math.max(0, $player.duration - 0.05);
     if (!betweenZeroAndOne(timestamp) && requestedSeconds > $player.duration) {
-      console.warn(`[${defaults.cacheKeyPrefix}] Timestamp ${timestamp} exceeds video duration ${$player.duration}s, using end of video`);
+      if (debug) console.warn(`[${cacheKeyPrefix}] Timestamp ${timestamp} exceeds video duration ${$player.duration}s, using end of video`);
     }
     seekTime = Math.min(Math.max(requestedSeconds, epsilon), maxT);
 
@@ -260,7 +268,7 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
       onTiming({ phase: 'seek', when: 'start', ts: performance.now(), index });
     }
     const seekStart = performance.now();
-    await seek($player, seekTime);
+    await seek($player, seekTime, 3, debug, cacheKeyPrefix);
     // Briefly play to force frame presentation, then wait for presented frame at target
     try { await $player.play(); } catch (e) { /* ignore autoplay restrictions - muted helps */ }
     await _waitForPresentedFrame($player, seekTime);
@@ -270,7 +278,7 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
       onTiming({ phase: 'seek', when: 'end', ts: performance.now(), index });
     }
   } else {
-    console.warn(`[${defaults.cacheKeyPrefix}] Unable to seek video: ${videoElement.src}`);
+    if (debug) console.warn(`[${cacheKeyPrefix}] Unable to seek video: ${videoElement.src}`);
   }
 
   $player.pause();
@@ -369,7 +377,7 @@ const cleanupObjectURLs = () => {
       try {
         URL.revokeObjectURL(url);
       } catch (e) {
-        console.warn(`[${defaults.cacheKeyPrefix}] Failed to revoke object URL: ${e.message}`);
+        if (lastDebug) console.warn(`[${lastCacheKeyPrefix}] Failed to revoke object URL: ${e.message}`);
       }
     });
     globalThis._videoThumbnailObjectURLs.clear();
@@ -393,7 +401,7 @@ const _getMemoryUsage = () => {
   };
 };
 
-const seek = ($player, time, maxRetries = 3) => {
+const seek = ($player, time, maxRetries = 3, debug = false, cacheKeyPrefix = defaults.cacheKeyPrefix) => {
   const attemptSeek = (attempt = 1) => {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -403,7 +411,7 @@ const seek = ($player, time, maxRetries = 3) => {
       const errorHandler = (e) => {
         clearTimeout(timeout);
         if (attempt < maxRetries) {
-          console.warn(`[${defaults.cacheKeyPrefix}] Seek attempt ${attempt} failed, retrying...`);
+          if (debug) console.warn(`[${cacheKeyPrefix}] Seek attempt ${attempt} failed, retrying...`);
           setTimeout(() => {
             attemptSeek(attempt + 1).then(resolve).catch(reject);
           }, 100 * attempt);
@@ -421,7 +429,7 @@ const seek = ($player, time, maxRetries = 3) => {
         const tolerance = 0.5;
         const actualTime = $player.currentTime;
         if (Math.abs(actualTime - time) > tolerance) {
-          console.warn(`[${defaults.cacheKeyPrefix}] Seek inaccuracy: requested ${time}s, got ${actualTime}s`);
+          if (debug) console.warn(`[${cacheKeyPrefix}] Seek inaccuracy: requested ${time}s, got ${actualTime}s`);
         }
 
         resolve(actualTime);
@@ -501,6 +509,10 @@ const getThumbnailDataURI = async (url, opts) => {
   const shouldCache   = (isBoolean(opts.cache)                        ? opts.cache : defaults.cache);
   const cacheReadOnly = opts.cacheReadOnly;
   const cacheKeyPrefix = (isString(opts.cacheKeyPrefix) ? opts.cacheKeyPrefix : defaults.cacheKeyPrefix);
+  const debug         = (isBoolean(opts.debug)                        ? opts.debug : defaults.debug);
+
+  lastDebug = debug;
+  lastCacheKeyPrefix = cacheKeyPrefix;
 
   const timestamps = (
     Array.isArray(opts.timestamps) ?
@@ -521,9 +533,9 @@ const getThumbnailDataURI = async (url, opts) => {
 
   const cacheKeySuffix = `${size}|${imageFormat(mime)}|${timestamp}|${url}`;
   const cachedKey = findCachedKey(cacheKeySuffix, cacheKeyPrefix);
-      const cachedURI = cachedKey ? retrieve(cachedKey) : null;
+      const cachedURI = cachedKey ? retrieve(cachedKey, debug, cacheKeyPrefix) : null;
 
-      if (canCache && shouldCache && isDataURI(cachedURI)) {
+      if (canCache(debug, cacheKeyPrefix) && shouldCache && isDataURI(cachedURI)) {
         try {
           const metadata = cacheKeyParser(cachedKey);
           if (!metadata || typeof metadata !== 'object') {
@@ -544,10 +556,10 @@ const getThumbnailDataURI = async (url, opts) => {
           // Cached path: no additional seek/encode time
           timingAgg.seeksMs[i] = 0;
           timingAgg.encodesMs[i] = 0;
-          console.info(`[${defaults.cacheKeyPrefix}] Retrieved from cache: ${cachedKey}`);
+          if (debug) console.info(`[${cacheKeyPrefix}] Retrieved from cache: ${cachedKey}`);
           continue;
         } catch (parseError) {
-          console.warn(`[${defaults.cacheKeyPrefix}] Failed to parse cache key, will regenerate: ${cachedKey}`, parseError);
+          if (debug) console.warn(`[${cacheKeyPrefix}] Failed to parse cache key, will regenerate: ${cachedKey}`, parseError);
         }
       }
 
@@ -558,7 +570,7 @@ const getThumbnailDataURI = async (url, opts) => {
           timingAgg.loadMs = performance.now() - loadStart;
         }
 
-        const thumbnail = await videoToDataURI($player, timestamp, size, mime, type, onTiming, i);
+        const thumbnail = await videoToDataURI($player, timestamp, size, mime, type, onTiming, i, debug, cacheKeyPrefix);
 
         if (!thumbnail || typeof thumbnail !== 'object' || !thumbnail.URI) {
           throw new Error(`Invalid thumbnail generated for timestamp ${timestamp}`);
@@ -578,15 +590,15 @@ const getThumbnailDataURI = async (url, opts) => {
   const cacheKey = `${cacheKeyPrefix}-${cacheTimestamp}-${thumbnail.seekTime}-${cacheKeySuffix}`;
 
         // Only cache data URIs; skip caching blob/object URLs
-        if (type !== 'objectURL' && canCache && shouldCache && !retrieve(cacheKey)) {
+        if (type !== 'objectURL' && canCache(debug, cacheKeyPrefix) && shouldCache && !retrieve(cacheKey, debug, cacheKeyPrefix)) {
           const keys = Object.keys(localStorage)
             .filter((key) => key.startsWith(cacheKeyPrefix))
             .sort();
 
-          while (!store(cacheKey, thumbnail.URI) && keys.length > 0) {
+          while (!store(cacheKey, thumbnail.URI, debug, cacheKeyPrefix) && keys.length > 0) {
             const key = keys.shift();
             localStorage.removeItem(key);
-            console.info(`[${defaults.cacheKeyPrefix}] Purged from cache: ${key}`);
+            if (debug) console.info(`[${cacheKeyPrefix}] Purged from cache: ${key}`);
           }
         }
       }
@@ -597,7 +609,7 @@ const getThumbnailDataURI = async (url, opts) => {
         $player.removeAttribute('src');
         $player.load();
       } catch (cleanupError) {
-        console.warn(`[${defaults.cacheKeyPrefix}] Error during video cleanup: ${cleanupError.message}`);
+        if (debug) console.warn(`[${cacheKeyPrefix}] Error during video cleanup: ${cleanupError.message}`);
       }
     }
 
@@ -613,7 +625,7 @@ const getThumbnailDataURI = async (url, opts) => {
     } catch {}
     return thumbnails;
   } catch (e) {
-    console.error(`[${defaults.cacheKeyPrefix}] Unable to create thumbnail(s) for: ${url}`, e);
+    if (debug) console.error(`[${cacheKeyPrefix}] Unable to create thumbnail(s) for: ${url}`, e);
     throw e;
   }
 }
