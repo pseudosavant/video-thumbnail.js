@@ -1,4 +1,4 @@
-// video-thumbnail.js v2.0.2
+// video-thumbnail.js v2.1.0
 // https://github.com/pseudosavant/video-thumbnail.js
 // © 2025 Paul Ellis (https://github.com/pseudosavant)
 // License: MIT
@@ -245,7 +245,7 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
     if (debug) console.warn(`[${cacheKeyPrefix}] Canvas width clamped from ${size} to ${w}`);
   }
 
-  const { canvas: c, ctx } = getCanvas(w, h, type === 'objectURL');
+  const { canvas: c, ctx } = getCanvas(w, h, type === 'objectURL' || type === 'blob');
 
   var seekTime = 0;
   let seekMs = 0;
@@ -288,12 +288,17 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
   const encodeStart = performance.now();
   ctx.drawImage($player, 0, 0, w, h);
 
-  const URI = (type === 'objectURL' ? await canvasToBlob(c, mime.type, mime.quality) : c.toDataURL(mime.type, mime.quality));
-  // Compute size in KB accurately for object URLs
+  const blob = (type === 'objectURL' || type === 'blob')
+    ? await canvasToBlob(c, mime.type, mime.quality)
+    : null;
+  const URI = type === 'objectURL'
+    ? createTrackedObjectURL(blob)
+    : (type === 'blob' ? '' : c.toDataURL(mime.type, mime.quality));
+
+  // Compute size in KB accurately for binary outputs
   let sizeKB = 0;
-  if (type === 'objectURL') {
-    const sz = globalThis._videoThumbnailObjectURLSizes && globalThis._videoThumbnailObjectURLSizes.get(URI);
-    if (typeof sz === 'number') sizeKB = round(sz / 1024, 2);
+  if (blob) {
+    sizeKB = round(blob.size / 1024, 2);
   } else {
     sizeKB = round((URI && URI.length ? (URI.length / 1024) : 0), 2);
   }
@@ -303,32 +308,19 @@ const videoToDataURI = async (videoElement, timestamp, size, mime, type, onTimin
   }
   const duration = performance.now() - start;
   const response = { URI, timestamp, duration, seekTime, mime, seekMs, encodeMs, sizeKB };
+  if (type === 'blob') response.blob = blob;
 
   return response;
 }
 
 const canvasToBlob = (canvas, type, quality) => {
-  const makeURL = (blob, resolve) => {
-    const objectURL = URL.createObjectURL(blob);
-    if (!globalThis._videoThumbnailObjectURLs) {
-      globalThis._videoThumbnailObjectURLs = new Set();
-    }
-    globalThis._videoThumbnailObjectURLs.add(objectURL);
-    // Track sizes for accurate metrics
-    if (!globalThis._videoThumbnailObjectURLSizes) {
-      globalThis._videoThumbnailObjectURLSizes = new Map();
-    }
-    try { globalThis._videoThumbnailObjectURLSizes.set(objectURL, blob.size); } catch {}
-    resolve(objectURL);
-  };
-
   // OffscreenCanvas path
   try {
     if (typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas) {
       return new Promise(async (resolve, reject) => {
         try {
           const blob = await canvas.convertToBlob({ type, quality });
-          if (blob) return makeURL(blob, resolve);
+          if (blob) return resolve(blob);
           reject(new Error('Failed to create blob from OffscreenCanvas'));
         } catch (e) {
           reject(new Error(`Unable to create blob from OffscreenCanvas: ${e.message}`));
@@ -343,7 +335,7 @@ const canvasToBlob = (canvas, type, quality) => {
       try {
         canvas.toBlob((blob) => {
           if (blob) {
-            return makeURL(blob, resolve);
+            return resolve(blob);
           }
           reject(new Error('Failed to create blob from canvas'));
         }, type, quality);
@@ -362,12 +354,25 @@ const canvasToBlob = (canvas, type, quality) => {
       const dataURL = canvas.toDataURL(type, quality);
       const resp = await fetch(dataURL);
       const blob = await resp.blob();
-      return makeURL(blob, resolve);
+      return resolve(blob);
     } catch (e) {
       reject(new Error(`Unable to create blob from canvas (fallback): ${e.message}`));
     }
   });
 }
+
+const createTrackedObjectURL = (blob) => {
+  const objectURL = URL.createObjectURL(blob);
+  if (!globalThis._videoThumbnailObjectURLs) {
+    globalThis._videoThumbnailObjectURLs = new Set();
+  }
+  globalThis._videoThumbnailObjectURLs.add(objectURL);
+  if (!globalThis._videoThumbnailObjectURLSizes) {
+    globalThis._videoThumbnailObjectURLSizes = new Map();
+  }
+  try { globalThis._videoThumbnailObjectURLSizes.set(objectURL, blob.size); } catch {}
+  return objectURL;
+};
 
 const cleanupObjectURLs = () => {
   let revokedCount = 0;
@@ -505,7 +510,7 @@ const getThumbnailDataURI = async (url, opts) => {
     type: (opts.mime && isImageMimeType(opts.mime.type)) ? opts.mime.type : defaultMime.type,
     quality: (opts.mime && isNumber(opts.mime.quality)) ? opts.mime.quality : defaultMime.quality
   };
-  const type          = (opts.type === 'objectURL'                    ? opts.type : defaults.type);
+  const type          = (opts.type === 'objectURL' || opts.type === 'blob' ? opts.type : defaults.type);
   const shouldCache   = (isBoolean(opts.cache)                        ? opts.cache : defaults.cache);
   const cacheReadOnly = opts.cacheReadOnly;
   const cacheKeyPrefix = (isString(opts.cacheKeyPrefix) ? opts.cacheKeyPrefix : defaults.cacheKeyPrefix);
@@ -535,7 +540,7 @@ const getThumbnailDataURI = async (url, opts) => {
   const cachedKey = findCachedKey(cacheKeySuffix, cacheKeyPrefix);
       const cachedURI = cachedKey ? retrieve(cachedKey, debug, cacheKeyPrefix) : null;
 
-      if (canCache(debug, cacheKeyPrefix) && shouldCache && isDataURI(cachedURI)) {
+      if (type === 'dataURI' && canCache(debug, cacheKeyPrefix) && shouldCache && isDataURI(cachedURI)) {
         try {
           const metadata = cacheKeyParser(cachedKey);
           if (!metadata || typeof metadata !== 'object') {
@@ -572,7 +577,7 @@ const getThumbnailDataURI = async (url, opts) => {
 
         const thumbnail = await videoToDataURI($player, timestamp, size, mime, type, onTiming, i, debug, cacheKeyPrefix);
 
-        if (!thumbnail || typeof thumbnail !== 'object' || !thumbnail.URI) {
+        if (!thumbnail || typeof thumbnail !== 'object' || (!thumbnail.URI && !thumbnail.blob)) {
           throw new Error(`Invalid thumbnail generated for timestamp ${timestamp}`);
         }
 
@@ -589,8 +594,8 @@ const getThumbnailDataURI = async (url, opts) => {
         const cacheTimestamp = Date.now();
   const cacheKey = `${cacheKeyPrefix}-${cacheTimestamp}-${thumbnail.seekTime}-${cacheKeySuffix}`;
 
-        // Only cache data URIs; skip caching blob/object URLs
-        if (type !== 'objectURL' && canCache(debug, cacheKeyPrefix) && shouldCache && !retrieve(cacheKey, debug, cacheKeyPrefix)) {
+        // Only cache data URIs; skip caching blob/object URL outputs in localStorage
+        if (type === 'dataURI' && canCache(debug, cacheKeyPrefix) && shouldCache && !retrieve(cacheKey, debug, cacheKeyPrefix)) {
           const keys = Object.keys(localStorage)
             .filter((key) => key.startsWith(cacheKeyPrefix))
             .sort();

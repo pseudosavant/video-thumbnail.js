@@ -1,7 +1,7 @@
 {
   "name": "video-thumbnail.js",
-  "version": "2.0.2",
-  "description": "Generate video thumbnails in the browser as data URIs or object URLs (ESM only)",
+  "version": "2.1.0",
+  "description": "Generate video thumbnails in the browser as data URIs, object URLs, or Blobs (ESM only)",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -31,6 +31,7 @@
     "canvas",
     "datauri",
     "objecturl",
+    "blob",
     "esm"
   ]
 }

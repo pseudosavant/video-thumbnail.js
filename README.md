@@ -1,12 +1,12 @@
 # video-thumbnail.js (ESM-only)
 
-Generate video thumbnails in the browser as [data URIs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs) or [object URLs](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL).
+Generate video thumbnails in the browser as [data URIs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs), [object URLs](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL), or raw [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) objects.
 
 ## Features
 
 - Generate one or multiple thumbnails from an HTML5 video URL
 - Works with same-origin videos or cross-origin with CORS enabled
-- Output as data URI (default) or object URL (Blob)
+- Output as data URI (default), object URL, or raw Blob
 - Canvas pooling, caching helpers, and timing instrumentation
 
 ## Usage
@@ -31,7 +31,7 @@ const url = 'https://example.com/video.mp4';
 const options = {
   timestamps: [0.1, 0.5, 10], // relative [0..1) or absolute seconds (>= 1)
   size: 480,                  // width in px, height is based on aspect ratio
-  type: 'dataURI',            // 'dataURI' (default) or 'objectURL'
+  type: 'dataURI',            // 'dataURI' (default), 'objectURL', or 'blob'
   cache: true,                // use localStorage caching
   cacheKeyPrefix: 'my-thumbs',
   mime: { type: 'image/jpeg', quality: 0.8 },
@@ -53,6 +53,23 @@ import videoThumbnail, { cleanupObjectURLs } from 'video-thumbnail.js';
 const thumbs = await videoThumbnail('/videos/sample.mp4', { type: 'objectURL' });
 // Use thumbs[0].URI in an <img src=\"...\">, then when finished:
 cleanupObjectURLs();
+```
+
+### Raw Blobs for caller-managed caching
+
+```js
+import videoThumbnail from 'video-thumbnail.js';
+
+const thumbs = await videoThumbnail('/videos/sample.mp4', { type: 'blob' });
+const blob = thumbs[0].blob;
+
+// Store the Blob directly in IndexedDB, Cache API metadata, or your own cache.
+await thumbnailStore.put({ key: 'sample-thumb', blob });
+
+// Create object URLs only when you need to display the Blob.
+const objectURL = URL.createObjectURL(blob);
+document.querySelector('img').src = objectURL;
+URL.revokeObjectURL(objectURL);
 ```
 
 ### Timing instrumentation
@@ -97,7 +114,7 @@ Options:
 - `timestamps`: number | number[] - values in [0,1) are relative; >= 1 are absolute seconds
 - `size`: number - output width in px (height maintains aspect ratio)
 - `mime`: `{ type: 'image/jpeg' | 'image/webp' | 'image/png', quality?: number }`
-- `type`: 'dataURI' | 'objectURL'
+- `type`: 'dataURI' | 'objectURL' | 'blob'
 - `cache`: boolean
 - `cacheKeyPrefix`: string
 - `cacheReadOnly`: boolean (read cache only; don't generate)
@@ -106,7 +123,7 @@ Options:
 
 Result:
 
-- `{ URI: string, timestamp: number, duration: number, mime: { type, quality? }, seekTime?: number, seekMs?: number, encodeMs?: number, sizeKB?: number }`
+- `{ URI: string, blob?: Blob, timestamp: number, duration: number, mime: { type, quality? }, seekTime?: number, seekMs?: number, encodeMs?: number, sizeKB?: number }`
 - The returned array also has a non-enumerable `timing` aggregate: `{ loadMs, totalMs, seeksMs, encodesMs, seekMsTotal, encodeMsTotal }`
 
 ## Notes
@@ -114,11 +131,13 @@ Result:
 - Requires a web server (don't open modules via file://). Use a dev server so the browser can import modules by URL.
 - Video URLs must be same-origin or support CORS.
 - JPEG is the default and most widely supported output. WebP support for canvas encoding is browser-dependent.
-- Caching applies to data URIs only. Object URLs are never stored in localStorage.
+- localStorage caching applies to data URIs only. Object URLs and Blobs are never stored in localStorage.
+- `type: 'blob'` returns the raw image `Blob` in `result.blob` and leaves `result.URI` empty. This is intended for callers that want to store binary thumbnails in IndexedDB or another caller-managed cache.
 
 ## Performance notes
 
 - `type: 'objectURL'` uses async encoding (Blob) and is typically smoother for batch generation than `toDataURL`.
+- `type: 'blob'` uses the same async encoding path as `objectURL`, but skips creating a temporary object URL.
 - Smaller `size` reduces draw/encode time but does not change seek time (seek cost is driven by the source video).
 
 ## Supported Browsers

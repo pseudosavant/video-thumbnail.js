@@ -5,7 +5,7 @@
  */
 
 export type ImageMimeType = 'image/jpeg' | 'image/webp' | 'image/png';
-export type OutputType = 'dataURI' | 'objectURL';
+export type OutputType = 'dataURI' | 'objectURL' | 'blob';
 export type Timestamps = number | number[];
 
 export type TimingPhase = 'load' | 'seek' | 'encode' | 'total';
@@ -32,7 +32,7 @@ export interface Options {
   size?: number;
   /** Image encoding options (mime type and quality). */
   mime?: MimeOptions;
-  /** Output type. 'dataURI' (default) or 'objectURL'. */
+  /** Output type. 'dataURI' (default), 'objectURL', or 'blob'. */
   type?: OutputType;
   /** Whether to use localStorage-based caching (default: false). */
   cache?: boolean;
@@ -54,8 +54,10 @@ export interface MemoryUsage {
 }
 
 export interface ThumbnailResult {
-  /** Data URI or Blob object URL, depending on Options.type. */
+  /** Data URI or Blob object URL, depending on Options.type. Empty string when Options.type is 'blob'. */
   URI: string;
+  /** Raw image Blob when Options.type is 'blob'. */
+  blob?: Blob;
   /** The timestamp requested for this thumbnail. */
   timestamp: number;
   /** Total time spent generating this thumbnail (ms). */
@@ -90,6 +92,8 @@ export type ThumbnailResults = ThumbnailResult[] & { timing: TimingAggregate };
  * - When options.type is 'dataURI' (default), the returned URI is a data URL.
  * - When options.type is 'objectURL', the returned URI is a blob URL. Call
  *   cleanupObjectURLs() to revoke them when no longer needed.
+ * - When options.type is 'blob', the returned result has a Blob in the `blob`
+ *   field and an empty URI.
  */
 export default function videoThumbnail(
   url: string,
@@ -123,6 +127,8 @@ export function clearCanvasPool(): boolean;
  * - When options.type is 'dataURI' (default), the returned URI is a data URL.
  * - When options.type is 'objectURL', the returned URI is a blob URL. Call
  *   videoThumbnail.cleanupObjectURLs() to revoke them when no longer needed.
+ * - When options.type is 'blob', the returned result has a Blob in the `blob`
+ *   field and an empty URI.
  */
 declare function videoThumbnail(
   url: string,
@@ -133,8 +139,8 @@ declare namespace videoThumbnail {
   /** Supported image mime types for output */
   type ImageMimeType = 'image/jpeg' | 'image/webp' | 'image/png';
 
-  /** Output type: data URI (default) or object URL from a Blob */
-  type OutputType = 'dataURI' | 'objectURL';
+  /** Output type: data URI (default), object URL from a Blob, or raw Blob */
+  type OutputType = 'dataURI' | 'objectURL' | 'blob';
 
   /** Timestamp(s) to capture. Values in [0,1) are treated as relative seconds; >= 1 as absolute seconds. */
   type Timestamps = number | number[];
@@ -165,7 +171,7 @@ declare namespace videoThumbnail {
     size?: number;
     /** Image encoding options (mime type and quality). */
     mime?: MimeOptions;
-    /** Output type. 'dataURI' (default) or 'objectURL'. */
+    /** Output type. 'dataURI' (default), 'objectURL', or 'blob'. */
     type?: OutputType;
     /** Whether to use localStorage-based caching (default: false). */
     cache?: boolean;
@@ -189,8 +195,10 @@ declare namespace videoThumbnail {
 
   /** Result object for each generated thumbnail */
   interface ThumbnailResult {
-    /** Data URI or Blob object URL, depending on Options.type. */
+    /** Data URI or Blob object URL, depending on Options.type. Empty string when Options.type is 'blob'. */
     URI: string;
+    /** Raw image Blob when Options.type is 'blob'. */
+    blob?: Blob;
     /** The timestamp requested for this thumbnail. */
     timestamp: number;
     /** Total time spent generating this thumbnail (ms). */
